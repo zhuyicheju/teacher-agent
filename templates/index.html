@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>问答系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>问答系统</h1>
+        <textarea id="question" placeholder="请输入你的问题..."></textarea>
+        <button onclick="askQuestion()">提交问题</button>
+        <div id="response" class="response" style="display: none;"></div>
+
+        <h2>上传文档</h2>
+        <input type="file" id="fileInput" accept=".pdf,.docx">
+        <button onclick="uploadFile()">上传文档</button>
+        <div id="uploadResponse" class="response" style="display: none;"></div>
+    </div>
+
+    <script>
+        function askQuestion() {
+            const question = document.getElementById('question').value;
+            const responseDiv = document.getElementById('response');
+            responseDiv.style.display = 'block';
+            responseDiv.textContent = '加载中...';
+
+            if (!question.trim()) {
+                responseDiv.textContent = '请输入一个问题！';
+                return;
+            }
+
+            const eventSource = new EventSource(`/ask?question=${encodeURIComponent(question)}`);
+            let fullResponse = '';
+            
+            eventSource.onmessage = function(event) {
+                if (event.data === '[DONE]') {
+                    eventSource.close();
+                    return;
+                }
+                
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.error) {
+                        responseDiv.textContent = `错误: ${data.error}`;
+                        eventSource.close();
+                        return;
+                    }
+                    
+                    if (data.content) {
+                        fullResponse += data.content;
+                        responseDiv.textContent = fullResponse;
+                    }
+                } catch (e) {
+                    console.error('解析错误:', e);
+                }
+            };
+            
+            eventSource.onerror = function() {
+                eventSource.close();
+                responseDiv.textContent = '连接错误，请重试';
+            };
+        }
+
+        function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadResponseDiv = document.getElementById('uploadResponse');
+            uploadResponseDiv.style.display = 'block';
+            uploadResponseDiv.textContent = '上传中...';
+
+            if (!fileInput.files.length) {
+                uploadResponseDiv.textContent = '请选择一个文件！';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData, 
+                headers: {
+                    'Accept': 'application/json' // 明确要求JSON响应
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    uploadResponseDiv.textContent = `错误: ${data.error}`;
+                } else {
+                    uploadResponseDiv.textContent = '上传成功！分割后的内容如下：';
+                    const segments = data.segments || [];
+                    uploadResponseDiv.textContent += '\n' + segments.join('\n');
+                }
+            })
+            .catch(error => {
+                uploadResponseDiv.textContent = `上传失败: ${error}`;
+            });
+        }
+    </script>
+</body>
+</html>
