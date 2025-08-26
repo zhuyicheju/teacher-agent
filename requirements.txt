@@ -1,0 +1,7 @@
+flask
+zhipuai
+pdfminer.six
+langchain
+docx
+python-docx
+chromadb
