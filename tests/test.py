@@ -13,7 +13,7 @@ response = client.chat.completions.create(
     ],
     stream=True
 )
-# print(response)
+print(response)
 
 raw_documents_dir = os.path.join('data', 'raw_documents')
 print(raw_documents_dir)

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="utf-8">
+    <title>注册</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>注册</h1>
+        <input id="username" placeholder="用户名">
+        <input id="password" type="password" placeholder="密码">
+        <button onclick="doRegister()">注册</button>
+        <div id="msg"></div>
+        <p><a href="/login">去登录</a></p>
+    </div>
+    <script>
+        function doRegister(){
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            fetch('/register', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+                body: JSON.stringify({username, password})
+            })
+            .then(r => r.json())
+            .then(j => {
+                const msg = document.getElementById('msg');
+                if (j.success) {
+                    // 注册后已自动登录，跳转到首页
+                    window.location = '/';
+                } else {
+                    msg.textContent = '错误: ' + (j.error || '未知错误');
+                }
+            })
+            .catch(e => document.getElementById('msg').textContent = '请求失败');
+        }
+    </script>
+</body>
+</html>

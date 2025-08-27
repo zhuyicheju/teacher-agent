@@ -4,19 +4,22 @@ from typing import List, Optional, Dict, Any
 
 # 必要模块位置
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-DEFAULT_PERSIST_DIR = os.path.join(PROJECT_ROOT, 'knowledge_base', 'chroma_db')
-
+DEFAULT_PERSIST_DIR = os.path.join(PROJECT_ROOT, 'knowledge_base')
 
 class VectorDB:
     """
-    将文本块生成向量并保存到 Chroma。
-    配置与调用已写死为 ZhipuAI（API Key 硬编码）。
-    兼容多版本 chromadb 的 client/collection 构造与 upsert/add 方法。
+    支持按 username 隔离的 Chroma collection / persist 目录。
+    使用方式：VectorDB(username='alice') 会在 knowledge_base/chroma_alice 下持久化并创建 collection teacher_agent_alice。
     """
-
-    def __init__(self, persist_directory: Optional[str] = None, collection_name: str = "teacher_agent"):
-        self.persist_directory = persist_directory or DEFAULT_PERSIST_DIR
-        self.collection_name = collection_name
+    def __init__(self, persist_directory: Optional[str] = None, collection_name: Optional[str] = None, username: Optional[str] = None):
+        # 如果提供 username，则在默认目录下为该用户创建独立目录
+        if username:
+            base = persist_directory or DEFAULT_PERSIST_DIR
+            self.persist_directory = os.path.join(base, f"chroma_{username}")
+            self.collection_name = collection_name or f"teacher_agent_{username}"
+        else:
+            self.persist_directory = persist_directory or os.path.join(DEFAULT_PERSIST_DIR, 'chroma_db')
+            self.collection_name = collection_name or "teacher_agent"
         self._client = None
         self._collection = None
         self._embedder = None
@@ -33,19 +36,12 @@ class VectorDB:
             raise ImportError("缺少 chromadb。请运行: python -m pip install chromadb")
 
         try:
-            # 新的 Chroma 客户端初始化方式
+            # 持久化客户端（不同 chromadb 版本可能不同）
             self._client = chromadb.PersistentClient(path=self.persist_directory)
-            
-            # 获取或创建 collection
             self._collection = self._client.get_or_create_collection(name=self.collection_name)
-            
-            # 打印用于调试的持久化路径
             print(f"Chroma persist_directory = {self.persist_directory}")
-            
         except Exception as e:
             raise RuntimeError(f"初始化 Chroma 客户端失败：{e}")
-            # 打印用于调试的持久化路径
-        print(f"Chroma persist_directory = {self.persist_directory}")
 
     def _init_embedder(self):
         if self._embedder is not None:
@@ -56,7 +52,6 @@ class VectorDB:
         except ImportError:
             raise ImportError("缺少 zhipuai SDK。请运行: python -m pip install zhipuai")
 
-        # 硬编码 API Key（按要求）
         api_key = "98ed0ed5a81f4a958432644de29cb547.LLhUp4oWijSoizYc"
         client = ZhipuAI(api_key=api_key)
         self._embedder = ("zhipuai", client)
@@ -75,7 +70,6 @@ class VectorDB:
 
         embeddings: List[List[float]] = []
 
-        # 兼容 dict 响应结构
         if isinstance(resp, dict) and resp.get("data"):
             for item in resp["data"]:
                 emb = item.get("embedding")
@@ -84,7 +78,6 @@ class VectorDB:
                 embeddings.append(list(emb))
             return embeddings
 
-        # 兼容对象属性风格
         data = getattr(resp, "data", None)
         if data:
             for item in data:
@@ -118,10 +111,8 @@ class VectorDB:
 
             embeddings = self._embed_batch(batch_texts)
 
-            # 不同版本 chromadb collection 写入方法兼容处理
             wrote = False
             try:
-                # 新版使用 upsert
                 self._collection.upsert(
                     ids=batch_ids,
                     documents=batch_texts,
@@ -131,7 +122,6 @@ class VectorDB:
                 wrote = True
             except Exception:
                 try:
-                    # 旧版可能使用 add
                     self._collection.add(
                         ids=batch_ids,
                         documents=batch_texts,
@@ -142,11 +132,9 @@ class VectorDB:
                 except Exception as e:
                     raise RuntimeError(f"写入 Chroma collection 失败: {e}")
 
-        # 尝试持久化（某些版本需要显式 persist）
         try:
             self._client.persist()
         except Exception:
-            # 忽略 persist 失败（非致命）
             pass
 
         return ids_out
@@ -156,8 +144,6 @@ class VectorDB:
             return []
         self._init_chroma()
         q_emb = self._embed_batch([query_text])[0]
-
-        # 不同版本可能返回格式不同，直接返回原始结果给调用者处理
         results = self._collection.query(query_embeddings=[q_emb], n_results=top_k,
                                          include=['metadatas', 'documents', 'distances'])
         return results
