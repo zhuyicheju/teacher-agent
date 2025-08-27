@@ -5,6 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>问答系统</title>
     <link rel="stylesheet" href="/static/css/style.css"/>
+    <!-- 新增：删除按钮样式（尽量与现有样式兼容） -->
+    <style>
+        /* filepath: c:\Users\w3113\Desktop\teacher-agent\templates\index.html (style additions) */
+        .thread-item, .doc-item {
+            position: relative;
+            padding-right: 60px; /* 给删除按钮留出位置 */
+        }
+        .item-delete-btn {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            display: none;
+            background: #e74c3c;
+            color: #fff;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .thread-item:hover .item-delete-btn,
+        .doc-item:hover .item-delete-btn {
+            display: inline-block;
+        }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css">
@@ -57,13 +82,7 @@
                     <textarea id="question" placeholder="请输入你的问题..." style="height:72px"></textarea>
                     <div class="chat-actions">
                         <button onclick="askQuestion()">提交问题</button>
-                        <button onclick="clearConversation()">清空答案显示</button>
                     </div>
-                </div>
-
-                <div>
-                    <h4>回答实时输出</h4>
-                    <div id="response" class="response" style="display:none"></div>
                 </div>
 
                 <div style="margin-top:12px">
@@ -86,7 +105,6 @@
         let drafts = {};
         function draftKeyFor(id) { return id ? `t_${id}` : '__new__'; }
 
-        // 页面加载时恢复“新会话”草稿（若有）
         document.addEventListener('DOMContentLoaded', () => {
             const q = document.getElementById('question');
             q.value = drafts['__new__'] || '';
@@ -112,6 +130,16 @@
                         div.className = 'thread-item' + (selectedThreadId===it.id ? ' active' : '');
                         div.innerHTML = `<div><strong>#${it.id}</strong> ${escapeHtml(it.title || '(无标题)')}</div><div style="font-size:12px;color:#666">${it.created_at}</div>`;
                         div.onclick = () => selectThread(it.id, it.title || '');
+                        // 添加删除按钮（悬停时显示）
+                        const del = document.createElement('button');
+                        del.className = 'item-delete-btn';
+                        del.textContent = '删除';
+                        del.title = '删除会话';
+                        del.onclick = (e) => {
+                            e.stopPropagation();
+                            deleteThread(it.id, div);
+                        };
+                        div.appendChild(del);
                         list.appendChild(div);
                     });
                 })
@@ -142,6 +170,44 @@
             .catch(e => { alert('请求失败'); console.error(e); });
         }
 
+        // 新增：选择并展示文档分段
+        async function selectDocument(docId){
+            selectedDocumentId = docId;
+            // 更新左侧高亮
+            Array.from(document.getElementsByClassName('doc-item')).forEach(el=>{
+                if (el.dataset && String(el.dataset.docId) === String(docId)) el.classList.add('active');
+                else el.classList.remove('active');
+            });
+            const segDiv = document.getElementById('segments');
+            if (!segDiv) return;
+            segDiv.textContent = '加载分段中...';
+            try {
+                const resp = await fetch(`/my_documents/${encodeURIComponent(docId)}/segments`);
+                if (!resp.ok) throw new Error('网络错误');
+                const j = await resp.json();
+                if (j.error) {
+                    segDiv.textContent = `错误: ${j.error}`;
+                    return;
+                }
+                const segs = j.segments || [];
+                if (segs.length === 0) {
+                    segDiv.textContent = '该文档无分段';
+                    return;
+                }
+                segDiv.innerHTML = '';
+                segs.forEach(s => {
+                    const item = document.createElement('div');
+                    item.className = 'segment';
+                    // 简单渲染分段索引、向量 id 与预览文本（已做 HTML 转义）
+                    item.innerHTML = `<div style="font-size:12px;color:#666">#${s.index} · vec:${s.vector_id}</div><div>${escapeHtml(s.preview)}</div>`;
+                    segDiv.appendChild(item);
+                });
+            } catch (e) {
+                console.error(e);
+                segDiv.textContent = '加载分段失败';
+            }
+        }
+
         function selectThread(id, title){
             // 在切换前保存当前输入（已在 input 事件里保存，但这里再确保）
             drafts[draftKeyFor(selectedThreadId)] = document.getElementById('question').value;
@@ -154,13 +220,9 @@
             // 切换时恢复对应草稿
             document.getElementById('question').value = drafts[draftKeyFor(selectedThreadId)] || '';
             loadMessages(id);
-            // 切换时恢复该会话的实时回答显示（若有）
+            // 不再使用单独的实时输出面板，清理旧显示（先判空以避免 null 访问）
             const respDiv = document.getElementById('response');
-            const saved = threadResponses[draftKeyFor(selectedThreadId)] || '';
-            if (saved) {
-                respDiv.style.display = 'block';
-                respDiv.innerHTML = saved;
-            } else {
+            if (respDiv) {
                 respDiv.style.display = 'none';
                 respDiv.textContent = '';
             }
@@ -179,7 +241,6 @@
                         msgDiv.textContent = `错误: ${j.error}`;
                         return;
                     }
-                    // 使用后端返回的 messages 字段（之前误用 items）
                     const items = j.messages || [];
                     if (items.length === 0) {
                         msgDiv.innerHTML = '该会话暂无消息';
@@ -194,7 +255,24 @@
                         meta.textContent = `${m.role} · ${m.created_at || ''}`;
                         const body = document.createElement('div');
                         body.className = 'msg-body';
-                        body.innerHTML = escapeHtml(m.content || '');
+                        const content = m.content || '';
+
+                        if (m.role === 'assistant') {
+                            try {
+                                const rawHtml = marked.parse(content);
+                                const safe = DOMPurify.sanitize(rawHtml);
+                                body.innerHTML = safe;
+                                body.querySelectorAll('pre code').forEach((block) => {
+                                    try { hljs.highlightElement(block); } catch (e) {}
+                                });
+                            } catch (e) {
+                                body.textContent = content;
+                            }
+                        } else {
+                            // user 消息以纯文本展示，避免 HTML 注入
+                            body.textContent = content;
+                        }
+
                         wrapper.appendChild(meta);
                         wrapper.appendChild(body);
                         msgDiv.appendChild(wrapper);
@@ -210,14 +288,11 @@
         async function askQuestion(){
             const qElem = document.getElementById('question');
             const question = qElem.value.trim();
-            const responseDiv = document.getElementById('response');
-            responseDiv.style.display = 'block';
-            responseDiv.textContent = '加载中...';
 
-            if (!question) { responseDiv.textContent = '请输入问题'; return; }
+            if (!question) { alert('请输入问题'); return; }
 
             try {
-                // 如果没有选中会话，先创建一个会话；若之前在“新会话”里有草稿，创建后把草稿归到新 thread
+                // 如果没有选中会话，先创建一个会话
                 if (!selectedThreadId) {
                     const resp = await fetch('/threads', {
                         method: 'POST',
@@ -226,10 +301,9 @@
                     });
                     const j = await resp.json();
                     if (!j.thread_id) {
-                        responseDiv.textContent = '创建会话失败';
+                        alert('创建会话失败');
                         return;
                     }
-                    // 把新会话 id 记录并把 __new__ 草稿迁移到新会话 key（可选）
                     const oldDraft = drafts['__new__'] || '';
                     selectedThreadId = j.thread_id;
                     selectedThreadTitle = '';
@@ -239,77 +313,97 @@
                     loadThreads();
                 }
 
-                // 确定本次流对应的会话 id（流绑定到该 id，不随 selectedThreadId 变更而变）
+                // 本次流绑定的 thread id（固定）
                 const streamThreadId = selectedThreadId;
-                const streamKey = draftKeyFor(streamThreadId);
-                // 初始化该会话的响应缓存
-                if (!threadResponses[streamKey]) threadResponses[streamKey] = '';
 
-                const url = `/ask?question=${encodeURIComponent(question)}&thread_id=${encodeURIComponent(selectedThreadId)}`;
+                // 立即在当前消息窗口追加 user 消息和一个空的 assistant 占位（用于流式更新）
+                const msgDiv = document.getElementById('messages');
+
+                // append user message
+                const userWrap = document.createElement('div');
+                userWrap.className = 'msg user';
+                const userMeta = document.createElement('div');
+                userMeta.className = 'msg-meta';
+                userMeta.textContent = `user · ${new Date().toLocaleString()}`;
+                const userBody = document.createElement('div');
+                userBody.className = 'msg-body';
+                userBody.textContent = question;
+                userWrap.appendChild(userMeta);
+                userWrap.appendChild(userBody);
+                msgDiv.appendChild(userWrap);
+
+                // append assistant placeholder
+                const assistantWrap = document.createElement('div');
+                assistantWrap.className = 'msg assistant';
+                const assistantMeta = document.createElement('div');
+                assistantMeta.className = 'msg-meta';
+                assistantMeta.textContent = `assistant · 正在回答...`;
+                const assistantBody = document.createElement('div');
+                assistantBody.className = 'msg-body';
+                assistantBody.innerHTML = ''; // will update with markdown-rendered HTML
+                assistantWrap.appendChild(assistantMeta);
+                assistantWrap.appendChild(assistantBody);
+                msgDiv.appendChild(assistantWrap);
+                msgDiv.scrollTop = msgDiv.scrollHeight;
+
+                // 发起 EventSource 流
+                const url = `/ask?question=${encodeURIComponent(question)}&thread_id=${encodeURIComponent(streamThreadId)}`;
                 const es = new EventSource(url);
                 let full = '';
+
                 es.onmessage = function(event){
                     if (event.data === '[DONE]') {
                         es.close();
-                        // 提交成功后清空该会话的草稿
+                        // 清空草稿
                         delete drafts[draftKeyFor(streamThreadId)];
                         qElem.value = '';
                         loadThreads();
-                        // 更新消息列表（仅在当前查看该线程时刷新）
-                        if (selectedThreadId === streamThreadId) loadMessages(selectedThreadId);
-                        loadDocuments();
+                        // 在流结束后，用后端最新消息刷新以保证一致性
+                        if (selectedThreadId === streamThreadId) {
+                            // 把 meta 更新成结束时间
+                            assistantMeta.textContent = `assistant · ${new Date().toLocaleString()}`;
+                            // 延迟刷新消息列表以避免闪烁（可根据需要移除）
+                            setTimeout(()=>loadMessages(selectedThreadId), 300);
+                        }
                         return;
                     }
                     try {
                         const data = JSON.parse(event.data);
                         if (data.error) {
-                            // 将错误也存到对应会话响应缓存
-                            threadResponses[streamKey] += `<div class="msg-body">错误: ${escapeHtml(String(data.error))}</div>`;
-                            if (selectedThreadId === streamThreadId) {
-                                responseDiv.textContent = `错误: ${data.error}`;
-                            }
+                            assistantBody.textContent = `错误: ${String(data.error)}`;
                             es.close();
                             return;
                         }
-                        if (data.meta && data.meta.thread_id) {
-                            // 保证流返回的 thread_id 与我们绑定的 streamThreadId 一致（容错）
-                            // 不要随意改变全局 selectedThreadId
-                        }
                         if (data.content) {
                             full += data.content;
-                            // 把流内容追加到该流对应的缓存（存原始 text 或 HTML）
-                            // 使用 marked + DOMPurify 仅在当前线程可见时渲染，缓存保留 HTML
-                            if (selectedThreadId === streamThreadId) {
-                                try {
-                                    const rawHtml = marked.parse(full);
-                                    const safe = DOMPurify.sanitize(rawHtml);
-                                    responseDiv.innerHTML = safe;
-                                    // 同步缓存为当前渲染的 HTML
-                                    threadResponses[streamKey] = responseDiv.innerHTML;
-                                    document.querySelectorAll('#response pre code').forEach((block) => {
-                                        try { hljs.highlightElement(block); } catch(e) {}
-                                    });
-                                    responseDiv.scrollTop = responseDiv.scrollHeight;
-                                } catch (e) {
-                                    responseDiv.textContent = full;
-                                    threadResponses[streamKey] = escapeHtml(full);
-                                }
-                            } else {
-                                // 当前不在该会话，仍追加到缓存（保留纯文本，切换时会被渲染）
-                                threadResponses[streamKey] = (threadResponses[streamKey] || '') + escapeHtml(data.content);
+                            // 渲染 Markdown（实时）
+                            try {
+                                const rawHtml = marked.parse(full);
+                                const safe = DOMPurify.sanitize(rawHtml);
+                                assistantBody.innerHTML = safe;
+                                // highlight code blocks
+                                assistantBody.querySelectorAll('pre code').forEach((block) => {
+                                    try { hljs.highlightElement(block); } catch(e) {}
+                                });
+                                msgDiv.scrollTop = msgDiv.scrollHeight;
+                            } catch (e) {
+                                assistantBody.textContent = full;
+                                msgDiv.scrollTop = msgDiv.scrollHeight;
                             }
                         }
                     } catch (e) {
                         console.error('解析 SSE 数据失败', e);
                     }
                 };
+
                 es.onerror = function(){
                     es.close();
-                    responseDiv.textContent = '连接出错，请重试';
+                    assistantBody.textContent = '连接出错，请重试';
                 };
+
             } catch (e) {
                 console.error(e);
-                responseDiv.textContent = '请求失败';
+                alert('请求失败');
             }
         }
 
@@ -328,76 +422,84 @@
                     j.items.forEach(d => {
                         const el = document.createElement('div');
                         el.className = 'doc-item';
+                        // 新增：标记 DOM 节点的文档 id，便于选中和高亮
+                        el.dataset.docId = d.id;
                         el.innerHTML = `<div><strong>#${d.id}</strong> ${escapeHtml(d.filename)}</div><div style="font-size:12px;color:#666">分段: ${d.segment_count} · ${d.stored_at}</div>`;
                         el.onclick = () => selectDocument(d.id);
+                        // 添加删除按钮（悬停时显示）
+                        const del = document.createElement('button');
+                        del.className = 'item-delete-btn';
+                        del.textContent = '删除';
+                        del.title = '删除文件';
+                        del.onclick = (e) => {
+                            e.stopPropagation();
+                            deleteDocument(d.id, el);
+                        };
+                        el.appendChild(del);
                         div.appendChild(el);
                     });
                 })
                 .catch(e => { div.textContent = '加载失败'; console.error(e); });
         }
 
-        function selectDocument(docId){
-            selectedDocumentId = docId;
-            const segDiv = document.getElementById('segments');
-            segDiv.textContent = '加载分段中...';
-            fetch(`/my_documents/${docId}/segments`)
-                .then(r => r.json())
-                .then(j => {
-                    if (j.error) { segDiv.textContent = '无法获取分段'; return; }
-                    if (!j.segments || j.segments.length === 0) {
-                        segDiv.textContent = '该文件无分段信息';
-                        return;
+        // 新增：删除会话（调用 DELETE /threads/<id>）
+        async function deleteThread(threadId, domNode){
+            if (!confirm(`确认删除会话 #${threadId}？此操作不可恢复。`)) return;
+            try {
+                const resp = await fetch(`/threads/${encodeURIComponent(threadId)}`, { method: 'DELETE' });
+                const j = await resp.json();
+                if (resp.ok && j.success) {
+                    // 从界面移除
+                    if (domNode && domNode.parentNode) domNode.parentNode.removeChild(domNode);
+                    // 如果当前正在查看该会话，清理视图
+                    if (selectedThreadId === threadId) {
+                        selectedThreadId = null;
+                        selectedThreadTitle = '';
+                        document.getElementById('currentThread').textContent = '无（新建或选择会话）';
+                        document.getElementById('messages').innerHTML = '请选择或新建会话以查看消息';
+                        document.getElementById('question').value = drafts[draftKeyFor(selectedThreadId)] || '';
                     }
-                    segDiv.innerHTML = '';
-                    j.segments.forEach(s => {
-                        const card = document.createElement('div');
-                        card.className = 'segment-card';
-                        card.innerHTML = `<div class="seg-header">分段 ${s.index} · ${escapeHtml(s.vector_id)}</div><div class="seg-body">${escapeHtml(s.preview)}</div>`;
-                        segDiv.appendChild(card);
-                    });
-                    segDiv.scrollTop = segDiv.scrollHeight;
-                })
-                .catch(e => { segDiv.textContent = '加载失败'; console.error(e); });
+                    // 可选：刷新会话列表
+                    loadThreads();
+                } else {
+                    alert('删除失败：' + (j.error || JSON.stringify(j)));
+                }
+            } catch (e) {
+                console.error(e);
+                alert('删除请求失败');
+            }
         }
 
-        // 上传后刷新文件列表
-        function uploadFile() {
-            const fileInput = document.getElementById('fileInput');
-            const uploadResponseDiv = document.getElementById('uploadResponse');
-            uploadResponseDiv.style.display = 'block';
-            uploadResponseDiv.textContent = '上传中...';
-
-            if (!fileInput.files.length) {
-                uploadResponseDiv.textContent = '请选择一个文件！';
-                return;
-            }
-
-            const file = fileInput.files[0];
-            const formData = new FormData();
-            formData.append('file', file);
-
-            fetch('/upload', {
-                method: 'POST',
-                body: formData,
-                headers: { 'Accept': 'application/json' }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    uploadResponseDiv.textContent = `错误: ${data.error}`;
-                } else {
-                    uploadResponseDiv.textContent = '上传成功！';
+        // 新增：删除文档（调用 DELETE /my_documents/<id>）
+        async function deleteDocument(docId, domNode){
+            if (!confirm(`确认删除文件 #${docId}？此操作会移除数据库记录并尝试删除磁盘文件。`)) return;
+            try {
+                const resp = await fetch(`/my_documents/${encodeURIComponent(docId)}`, { method: 'DELETE' });
+                const j = await resp.json();
+                if (resp.ok && j.success) {
+                    if (domNode && domNode.parentNode) domNode.parentNode.removeChild(domNode);
+                    if (selectedDocumentId === docId) {
+                        selectedDocumentId = null;
+                        document.getElementById('segments').innerHTML = '请选择左侧文件查看分段预览';
+                    }
+                    // 可选：刷新文件列表与分段视图
                     loadDocuments();
+                    if (selectedDocumentId) selectDocument(selectedDocumentId);
+                } else {
+                    alert('删除失败：' + (j.error || JSON.stringify(j)));
                 }
-            })
-            .catch(error => {
-                uploadResponseDiv.textContent = `上传失败: ${error}`;
-            });
+            } catch (e) {
+                console.error(e);
+                alert('删除请求失败');
+            }
         }
 
         function clearConversation(){
-            document.getElementById('response').textContent = '';
-            document.getElementById('response').style.display = 'none';
+            const resp = document.getElementById('response');
+            if (resp) {
+                resp.textContent = '';
+                resp.style.display = 'none';
+            }
         }
 
         function escapeHtml(s){ return String(s || '').replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }); }

@@ -24,75 +24,35 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret')
 # 注册 knowledge_processor 的 Blueprint
 app.register_blueprint(knowledge_processor_app)
 
-# -------- 用户数据库配置（SQLite） --------
-DB_PATH = os.path.join(base_dir, 'data', 'users.db')
+# -------- 用户数据库配置与用户函数已移至 src/init.py --------
+# 从 init 模块导入 DB_PATH 与用户相关函数
+from init import DB_PATH, init_db, create_user, verify_user
 
-def init_db():
-    Path(os.path.dirname(DB_PATH)).mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL
-        )
-    ''')
-    # 新：thread 表表示独立对话会话（每个会话可包含多条消息）
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS threads (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL,
-            title TEXT,
-            created_at TEXT NOT NULL
-        )
-    ''')
-    # 新：messages 表保存每条消息（role: user/assistant）
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            thread_id INTEGER NOT NULL,
-            username TEXT NOT NULL,
-            role TEXT NOT NULL,
-            content TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY(thread_id) REFERENCES threads(id)
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-def create_user(username: str, password: str):
-    if not username or not password:
-        return False, "用户名或密码不能为空"
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute(
-            'INSERT INTO users (username, password_hash) VALUES (?, ?)',
-            (username, generate_password_hash(password))
-        )
-        conn.commit()
-        return True, None
-    except sqlite3.IntegrityError:
-        return False, "用户名已存在"
-    except Exception as e:
-        return False, str(e)
-    finally:
-        conn.close()
-
-def verify_user(username: str, password: str):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('SELECT password_hash FROM users WHERE username = ?', (username,))
-    row = cursor.fetchone()
-    conn.close()
-    if not row:
-        return False
-    return check_password_hash(row[0], password)
-
-# 初始化数据库
+# 初始化用户数据库（如果需要）
 init_db()
+
+# 从新的 thread 模块导入线程相关的 Blueprint 与函数，并初始化线程表
+from thread import (
+    thread_app,
+    create_thread,
+    add_message,
+    thread_belongs_to_user,
+    list_threads,
+    get_thread_messages,
+    init_thread_db
+)
+
+# 新增：导入并注册删除功能的 Blueprint
+from delete import delete_app
+
+# 注册线程 Blueprint
+app.register_blueprint(thread_app)
+
+# 注册删除 Blueprint（包含 /threads/<id> DELETE 与 /my_documents/<id> DELETE）
+app.register_blueprint(delete_app)
+
+# 确保线程/消息表存在
+init_thread_db(DB_PATH)
 
 # -------- 原有路由（首页 + 问答流） --------
 @app.route('/')
@@ -101,60 +61,6 @@ def index():
     if not session.get('user'):
         return redirect(url_for('login_page'))
     return render_template('index.html', user=session.get('user'))
-
-# 新增：线程 / 消息 操作
-def create_thread(username: str, title: str = None) -> int:
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute('INSERT INTO threads (username, title, created_at) VALUES (?, ?, ?)',
-                (username, title or '', datetime.utcnow().isoformat()))
-    thread_id = cur.lastrowid
-    conn.commit()
-    conn.close()
-    return thread_id
-
-# 新增：校验线程是否属于某用户
-def thread_belongs_to_user(thread_id: int, username: str) -> bool:
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute('SELECT 1 FROM threads WHERE id = ? AND username = ?', (thread_id, username))
-    ok = cur.fetchone() is not None
-    conn.close()
-    return ok
-
-def list_threads(username: str, limit: int = 100):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute('SELECT id, title, created_at FROM threads WHERE username = ? ORDER BY id DESC LIMIT ?', (username, limit))
-    rows = cur.fetchall()
-    conn.close()
-    return [{'id': r[0], 'title': r[1], 'created_at': r[2]} for r in rows]
-
-# 加强：写消息前校验线程归属，防止写入到其它会话
-def add_message(thread_id: int, username: str, role: str, content: str):
-    if not thread_belongs_to_user(thread_id, username):
-        raise ValueError("线程不存在或不属于当前用户")
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute('INSERT INTO messages (thread_id, username, role, content, created_at) VALUES (?, ?, ?, ?, ?)',
-                (thread_id, username, role, content, datetime.utcnow().isoformat()))
-    conn.commit()
-    conn.close()
-
-# 读取时同时按 thread_id + username 过滤，双重保证
-def get_thread_messages(username: str, thread_id: int):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    # 确保线程属于当前用户
-    cur.execute('SELECT id FROM threads WHERE id = ? AND username = ?', (thread_id, username))
-    if not cur.fetchone():
-        conn.close()
-        return None
-    # 只返回该用户在该线程的消息（防止其他意外写入）
-    cur.execute('SELECT id, role, content, created_at FROM messages WHERE thread_id = ? AND username = ? ORDER BY id ASC', (thread_id, username))
-    rows = cur.fetchall()
-    conn.close()
-    return [{'id': r[0], 'role': r[1], 'content': r[2], 'created_at': r[3]} for r in rows]
 
 @app.route('/ask', methods=['POST', 'GET'])
 def ask_stream():
@@ -218,32 +124,6 @@ def ask_stream():
     except Exception as e:
         print("错误信息:", e)
         return jsonify({'error': '服务器内部错误，请稍后再试！'}), 500
-
-# 新增线程管理 API
-@app.route('/threads', methods=['GET'])
-def threads_list():
-    if not session.get('user'):
-        return jsonify({'error': '未登录'}), 401
-    items = list_threads(session.get('user'))
-    return jsonify({'items': items})
-
-@app.route('/threads', methods=['POST'])
-def threads_create():
-    if not session.get('user'):
-        return jsonify({'error': '未登录'}), 401
-    data = request.get_json(silent=True) or request.form
-    title = (data.get('title') or '').strip()
-    tid = create_thread(session.get('user'), title)
-    return jsonify({'thread_id': tid})
-
-@app.route('/threads/<int:thread_id>/messages', methods=['GET'])
-def thread_messages(thread_id):
-    if not session.get('user'):
-        return jsonify({'error': '未登录'}), 401
-    msgs = get_thread_messages(session.get('user'), thread_id)
-    if msgs is None:
-        return jsonify({'error': '未找到线程或无权限'}), 404
-    return jsonify({'messages': msgs})
 
 # -------- 注册 / 登录 页面与接口 --------
 @app.route('/register', methods=['GET'])
