@@ -1,69 +1,366 @@
 <!DOCTYPE html>
 <html lang="zh-cn">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>问答系统</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>问答系统</h1>
-        <textarea id="question" placeholder="请输入你的问题..."></textarea>
-        <button onclick="askQuestion()">提交问题</button>
-        <div id="response" class="response" style="display: none;"></div>
+        <nav>
+            <span>已登录：{{ user }}</span>
+            <a href="/logout" style="margin-left:10px;">退出登录</a>
+        </nav>
 
-        <h2>上传文档</h2>
-        <input type="file" id="fileInput" accept=".pdf,.docx">
-        <button onclick="uploadFile()">上传文档</button>
-        <div id="uploadResponse" class="response" style="display: none;"></div>
+        <h1>问答系统</h1>
+
+        <!-- 三列布局：left / center(segments) / right(chat) -->
+        <div class="layout three-col">
+            <div class="left">
+                <div style="margin-bottom:8px;">
+                    <button onclick="createThreadPrompt()">新建会话</button>
+                    <button onclick="loadThreads()">刷新会话</button>
+                </div>
+
+                <div>
+                    <h4>会话</h4>
+                    <div id="threadList">加载中...</div>
+                </div>
+
+                <div style="margin-top:12px;">
+                    <h4>已上传文件</h4>
+                    <div id="docList">加载中...</div>
+                    <div style="margin-top:6px;">
+                        <button onclick="loadDocuments()">刷新文件列表</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="center">
+                <h4>文档分段预览</h4>
+                <div id="segments">请选择左侧文件查看分段预览</div>
+            </div>
+
+            <div class="main">
+                <div class="chat-header">
+                    <strong>当前会话：</strong><span id="currentThread">无（新建或选择会话）</span>
+                </div>
+
+                <div id="messages" class="chat-window">请选择或新建会话以查看消息</div>
+
+                <div class="chat-input">
+                    <textarea id="question" placeholder="请输入你的问题..." style="height:72px"></textarea>
+                    <div class="chat-actions">
+                        <button onclick="askQuestion()">提交问题</button>
+                        <button onclick="clearConversation()">清空答案显示</button>
+                    </div>
+                </div>
+
+                <div>
+                    <h4>回答实时输出</h4>
+                    <div id="response" class="response" style="display:none"></div>
+                </div>
+
+                <div style="margin-top:12px">
+                    <h4>上传文档</h4>
+                    <input type="file" id="fileInput" accept=".pdf,.docx">
+                    <button onclick="uploadFile()">上传文档</button>
+                    <div id="uploadResponse" class="response" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        function askQuestion() {
-            const question = document.getElementById('question').value;
+        let selectedThreadId = null;
+        let selectedThreadTitle = '';
+        let selectedDocumentId = null;
+        let threadResponses = {};
+
+        // 新增：每个会话的草稿存储（页面内存）
+        let drafts = {};
+        function draftKeyFor(id) { return id ? `t_${id}` : '__new__'; }
+
+        // 页面加载时恢复“新会话”草稿（若有）
+        document.addEventListener('DOMContentLoaded', () => {
+            const q = document.getElementById('question');
+            q.value = drafts['__new__'] || '';
+            // 输入时持续保存当前会话草稿
+            q.addEventListener('input', (e) => {
+                drafts[draftKeyFor(selectedThreadId)] = e.target.value;
+            });
+        });
+
+        function loadThreads(){
+            const list = document.getElementById('threadList');
+            list.textContent = '加载中...';
+            fetch('/threads')
+                .then(r => r.json())
+                .then(j => {
+                    list.innerHTML = '';
+                    if (!j.items || j.items.length === 0) {
+                        list.textContent = '无会话，点击“新建会话”开始。';
+                        return;
+                    }
+                    j.items.forEach(it => {
+                        const div = document.createElement('div');
+                        div.className = 'thread-item' + (selectedThreadId===it.id ? ' active' : '');
+                        div.innerHTML = `<div><strong>#${it.id}</strong> ${escapeHtml(it.title || '(无标题)')}</div><div style="font-size:12px;color:#666">${it.created_at}</div>`;
+                        div.onclick = () => selectThread(it.id, it.title || '');
+                        list.appendChild(div);
+                    });
+                })
+                .catch(e => { document.getElementById('threadList').textContent = '加载失败'; console.error(e); });
+        }
+
+        function createThreadPrompt(){
+            const title = prompt('输入会话标题（可空）：', '');
+            fetch('/threads', {
+                method:'POST',
+                headers:{'Content-Type':'application/json','Accept':'application/json'},
+                body: JSON.stringify({title: title || ''})
+            })
+            .then(r => r.json())
+            .then(j => {
+                if (j.thread_id) {
+                    selectedThreadId = j.thread_id;
+                    selectedThreadTitle = title || '';
+                    document.getElementById('currentThread').textContent = `#${selectedThreadId} ${selectedThreadTitle}`;
+                    loadThreads();
+                    // 恢复该会话的草稿（如果之前有）
+                    document.getElementById('question').value = drafts[draftKeyFor(selectedThreadId)] || '';
+                    loadMessages(selectedThreadId);
+                } else {
+                    alert('创建失败');
+                }
+            })
+            .catch(e => { alert('请求失败'); console.error(e); });
+        }
+
+        function selectThread(id, title){
+            // 在切换前保存当前输入（已在 input 事件里保存，但这里再确保）
+            drafts[draftKeyFor(selectedThreadId)] = document.getElementById('question').value;
+            selectedThreadId = id;
+            selectedThreadTitle = title || '';
+            selectedDocumentId = null;
+            document.getElementById('currentThread').textContent = `#${id} ${selectedThreadTitle}`;
+            Array.from(document.getElementsByClassName('thread-item')).forEach(el=>el.classList.remove('active'));
+            loadThreads();
+            // 切换时恢复对应草稿
+            document.getElementById('question').value = drafts[draftKeyFor(selectedThreadId)] || '';
+            loadMessages(id);
+            // 切换时恢复该会话的实时回答显示（若有）
+            const respDiv = document.getElementById('response');
+            const saved = threadResponses[draftKeyFor(selectedThreadId)] || '';
+            if (saved) {
+                respDiv.style.display = 'block';
+                respDiv.innerHTML = saved;
+            } else {
+                respDiv.style.display = 'none';
+                respDiv.textContent = '';
+            }
+        }
+
+        function loadMessages(threadId){
+            const msgDiv = document.getElementById('messages');
+            msgDiv.textContent = '加载消息中...';
+            fetch(`/threads/${encodeURIComponent(threadId)}/messages`)
+                .then(r => {
+                    if (!r.ok) throw new Error('网络错误');
+                    return r.json();
+                })
+                .then(j => {
+                    if (j.error) {
+                        msgDiv.textContent = `错误: ${j.error}`;
+                        return;
+                    }
+                    // 使用后端返回的 messages 字段（之前误用 items）
+                    const items = j.messages || [];
+                    if (items.length === 0) {
+                        msgDiv.innerHTML = '该会话暂无消息';
+                        return;
+                    }
+                    msgDiv.innerHTML = '';
+                    items.forEach(m => {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'msg ' + (m.role === 'user' ? 'user' : 'assistant');
+                        const meta = document.createElement('div');
+                        meta.className = 'msg-meta';
+                        meta.textContent = `${m.role} · ${m.created_at || ''}`;
+                        const body = document.createElement('div');
+                        body.className = 'msg-body';
+                        body.innerHTML = escapeHtml(m.content || '');
+                        wrapper.appendChild(meta);
+                        wrapper.appendChild(body);
+                        msgDiv.appendChild(wrapper);
+                    });
+                    msgDiv.scrollTop = msgDiv.scrollHeight;
+                })
+                .catch(err => {
+                    console.error(err);
+                    msgDiv.textContent = '加载消息失败';
+                });
+        }
+
+        async function askQuestion(){
+            const qElem = document.getElementById('question');
+            const question = qElem.value.trim();
             const responseDiv = document.getElementById('response');
             responseDiv.style.display = 'block';
             responseDiv.textContent = '加载中...';
 
-            if (!question.trim()) {
-                responseDiv.textContent = '请输入一个问题！';
-                return;
-            }
+            if (!question) { responseDiv.textContent = '请输入问题'; return; }
 
-            const eventSource = new EventSource(`/ask?question=${encodeURIComponent(question)}`);
-            let fullResponse = '';
-            
-            eventSource.onmessage = function(event) {
-                if (event.data === '[DONE]') {
-                    eventSource.close();
-                    return;
-                }
-                
-                try {
-                    const data = JSON.parse(event.data);
-                    
-                    if (data.error) {
-                        responseDiv.textContent = `错误: ${data.error}`;
-                        eventSource.close();
+            try {
+                // 如果没有选中会话，先创建一个会话；若之前在“新会话”里有草稿，创建后把草稿归到新 thread
+                if (!selectedThreadId) {
+                    const resp = await fetch('/threads', {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json','Accept':'application/json'},
+                        body: JSON.stringify({title: ''})
+                    });
+                    const j = await resp.json();
+                    if (!j.thread_id) {
+                        responseDiv.textContent = '创建会话失败';
                         return;
                     }
-                    
-                    if (data.content) {
-                        fullResponse += data.content;
-                        responseDiv.textContent = fullResponse;
-                    }
-                } catch (e) {
-                    console.error('解析错误:', e);
+                    // 把新会话 id 记录并把 __new__ 草稿迁移到新会话 key（可选）
+                    const oldDraft = drafts['__new__'] || '';
+                    selectedThreadId = j.thread_id;
+                    selectedThreadTitle = '';
+                    if (oldDraft) drafts[draftKeyFor(selectedThreadId)] = oldDraft;
+                    delete drafts['__new__'];
+                    document.getElementById('currentThread').textContent = `#${selectedThreadId} ${selectedThreadTitle}`;
+                    loadThreads();
                 }
-            };
-            
-            eventSource.onerror = function() {
-                eventSource.close();
-                responseDiv.textContent = '连接错误，请重试';
-            };
+
+                // 确定本次流对应的会话 id（流绑定到该 id，不随 selectedThreadId 变更而变）
+                const streamThreadId = selectedThreadId;
+                const streamKey = draftKeyFor(streamThreadId);
+                // 初始化该会话的响应缓存
+                if (!threadResponses[streamKey]) threadResponses[streamKey] = '';
+
+                const url = `/ask?question=${encodeURIComponent(question)}&thread_id=${encodeURIComponent(selectedThreadId)}`;
+                const es = new EventSource(url);
+                let full = '';
+                es.onmessage = function(event){
+                    if (event.data === '[DONE]') {
+                        es.close();
+                        // 提交成功后清空该会话的草稿
+                        delete drafts[draftKeyFor(streamThreadId)];
+                        qElem.value = '';
+                        loadThreads();
+                        // 更新消息列表（仅在当前查看该线程时刷新）
+                        if (selectedThreadId === streamThreadId) loadMessages(selectedThreadId);
+                        loadDocuments();
+                        return;
+                    }
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.error) {
+                            // 将错误也存到对应会话响应缓存
+                            threadResponses[streamKey] += `<div class="msg-body">错误: ${escapeHtml(String(data.error))}</div>`;
+                            if (selectedThreadId === streamThreadId) {
+                                responseDiv.textContent = `错误: ${data.error}`;
+                            }
+                            es.close();
+                            return;
+                        }
+                        if (data.meta && data.meta.thread_id) {
+                            // 保证流返回的 thread_id 与我们绑定的 streamThreadId 一致（容错）
+                            // 不要随意改变全局 selectedThreadId
+                        }
+                        if (data.content) {
+                            full += data.content;
+                            // 把流内容追加到该流对应的缓存（存原始 text 或 HTML）
+                            // 使用 marked + DOMPurify 仅在当前线程可见时渲染，缓存保留 HTML
+                            if (selectedThreadId === streamThreadId) {
+                                try {
+                                    const rawHtml = marked.parse(full);
+                                    const safe = DOMPurify.sanitize(rawHtml);
+                                    responseDiv.innerHTML = safe;
+                                    // 同步缓存为当前渲染的 HTML
+                                    threadResponses[streamKey] = responseDiv.innerHTML;
+                                    document.querySelectorAll('#response pre code').forEach((block) => {
+                                        try { hljs.highlightElement(block); } catch(e) {}
+                                    });
+                                    responseDiv.scrollTop = responseDiv.scrollHeight;
+                                } catch (e) {
+                                    responseDiv.textContent = full;
+                                    threadResponses[streamKey] = escapeHtml(full);
+                                }
+                            } else {
+                                // 当前不在该会话，仍追加到缓存（保留纯文本，切换时会被渲染）
+                                threadResponses[streamKey] = (threadResponses[streamKey] || '') + escapeHtml(data.content);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('解析 SSE 数据失败', e);
+                    }
+                };
+                es.onerror = function(){
+                    es.close();
+                    responseDiv.textContent = '连接出错，请重试';
+                };
+            } catch (e) {
+                console.error(e);
+                responseDiv.textContent = '请求失败';
+            }
         }
 
+        // ----------------- 文档相关 -----------------
+        function loadDocuments(){
+            const div = document.getElementById('docList');
+            div.textContent = '加载中...';
+            fetch('/my_documents')
+                .then(r => r.json())
+                .then(j => {
+                    div.innerHTML = '';
+                    if (!j.items || j.items.length === 0) {
+                        div.textContent = '未上传文件';
+                        return;
+                    }
+                    j.items.forEach(d => {
+                        const el = document.createElement('div');
+                        el.className = 'doc-item';
+                        el.innerHTML = `<div><strong>#${d.id}</strong> ${escapeHtml(d.filename)}</div><div style="font-size:12px;color:#666">分段: ${d.segment_count} · ${d.stored_at}</div>`;
+                        el.onclick = () => selectDocument(d.id);
+                        div.appendChild(el);
+                    });
+                })
+                .catch(e => { div.textContent = '加载失败'; console.error(e); });
+        }
+
+        function selectDocument(docId){
+            selectedDocumentId = docId;
+            const segDiv = document.getElementById('segments');
+            segDiv.textContent = '加载分段中...';
+            fetch(`/my_documents/${docId}/segments`)
+                .then(r => r.json())
+                .then(j => {
+                    if (j.error) { segDiv.textContent = '无法获取分段'; return; }
+                    if (!j.segments || j.segments.length === 0) {
+                        segDiv.textContent = '该文件无分段信息';
+                        return;
+                    }
+                    segDiv.innerHTML = '';
+                    j.segments.forEach(s => {
+                        const card = document.createElement('div');
+                        card.className = 'segment-card';
+                        card.innerHTML = `<div class="seg-header">分段 ${s.index} · ${escapeHtml(s.vector_id)}</div><div class="seg-body">${escapeHtml(s.preview)}</div>`;
+                        segDiv.appendChild(card);
+                    });
+                    segDiv.scrollTop = segDiv.scrollHeight;
+                })
+                .catch(e => { segDiv.textContent = '加载失败'; console.error(e); });
+        }
+
+        // 上传后刷新文件列表
         function uploadFile() {
             const fileInput = document.getElementById('fileInput');
             const uploadResponseDiv = document.getElementById('uploadResponse');
@@ -81,25 +378,33 @@
 
             fetch('/upload', {
                 method: 'POST',
-                body: formData, 
-                headers: {
-                    'Accept': 'application/json' // 明确要求JSON响应
-                }
+                body: formData,
+                headers: { 'Accept': 'application/json' }
             })
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
                     uploadResponseDiv.textContent = `错误: ${data.error}`;
                 } else {
-                    uploadResponseDiv.textContent = '上传成功！分割后的内容如下：';
-                    const segments = data.segments || [];
-                    uploadResponseDiv.textContent += '\n' + segments.join('\n');
+                    uploadResponseDiv.textContent = '上传成功！';
+                    loadDocuments();
                 }
             })
             .catch(error => {
                 uploadResponseDiv.textContent = `上传失败: ${error}`;
             });
         }
+
+        function clearConversation(){
+            document.getElementById('response').textContent = '';
+            document.getElementById('response').style.display = 'none';
+        }
+
+        function escapeHtml(s){ return String(s || '').replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }); }
+
+        // 初始加载
+        loadThreads();
+        loadDocuments();
     </script>
 </body>
 </html>
