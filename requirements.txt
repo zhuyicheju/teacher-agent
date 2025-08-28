@@ -5,3 +5,4 @@ langchain
 docx
 python-docx
 chromadb
+datetime
