@@ -9,6 +9,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from pathlib import Path
 from pathlib import Path
 from datetime import datetime  # 新增
+from vector_db import VectorDB  # 新增导入（如未导入）
+from generate_title import generate_title_endpoint
 
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 template_path = os.path.join(base_dir, 'templates')
@@ -23,6 +25,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret')
 
 # 注册 knowledge_processor 的 Blueprint
 app.register_blueprint(knowledge_processor_app)
+app.add_url_rule('/generate_title', view_func=generate_title_endpoint, methods=['POST'])
 
 # -------- 用户数据库配置与用户函数已移至 src/init.py --------
 # 从 init 模块导入 DB_PATH 与用户相关函数
@@ -62,6 +65,17 @@ def index():
         return redirect(url_for('login_page'))
     return render_template('index.html', user=session.get('user'))
 
+def update_thread_title(thread_id: int, title: str):
+    """直接更新 threads 表的 title 字段（如果 thread 模块已有函数可替换此实现）。"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute('UPDATE threads SET title = ? WHERE id = ?', (title, thread_id))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print('更新线程标题失败：', e)
+
 @app.route('/ask', methods=['POST', 'GET'])
 def ask_stream():
     # 后端再做一次登录校验（防止直接访问）
@@ -81,30 +95,51 @@ def ask_stream():
         if not question:
             return jsonify({'error': '问题不能为空'}), 400
 
-        # 如果没有提供 thread_id 则自动新建一个线程（title 简短取自问题）
+        # 如果没有提供 thread_id 则自动新建一个线程（先空标题，后由大模型生成并更新）
+        generated_title = ''
         if not thread_id:
-            title = (question[:80] + '...') if len(question) > 80 else question
-            thread_id = create_thread(username, title)
+            # 先创建线程，空标题
+            thread_id = create_thread(username, '')
+            # 保存用户提问为消息（先保存，标题生成不影响消息）
+            try:
+                add_message(thread_id, username, 'user', question)
+            except Exception as e:
+                print("保存用户消息失败：", e)
+
+            # 使用大模型对第一个问题生成简短会话标题（同步收取 rag_answer_stream 的输出）
+            try:
+                title_prompt = f"请基于用户的问题生成一句简短且明确的会话标题（尽量不超过20个字）：{question}"
+                title_buf = ''
+                for chunk in rag_answer_stream(title_prompt, username=username, top_k=1, thread_id=thread_id):
+                    title_buf += chunk
+                generated_title = (title_buf or '').strip().replace('\n',' ')
+                if generated_title:
+                    # 截断为合理长度
+                    if len(generated_title) > 80:
+                        generated_title = generated_title[:80].rstrip() + '...'
+                    update_thread_title(thread_id, generated_title)
+            except Exception as e:
+                print('生成会话标题失败：', e)
         else:
             try:
                 thread_id = int(thread_id)
             except Exception:
                 return jsonify({'error': 'thread_id 格式错误'}), 400
-            # 新增校验：确保该 thread 属于当前用户
+            # 校验线程归属
             if not thread_belongs_to_user(thread_id, username):
                 return jsonify({'error': '未找到线程或无权限'}), 404
+            # 保存用户提问
+            try:
+                add_message(thread_id, username, 'user', question)
+            except Exception as e:
+                print("保存用户消息失败：", e)
 
-        # 先保存用户提问（作为消息）
-        try:
-            add_message(thread_id, username, 'user', question)
-        except Exception as e:
-            print("保存用户消息失败：", e)
-
-        # 如果需要将历史消息作为上下文，可在此读取并拼接（目前不自动拼接，保留单问答RAG）
+        # 如果已存在生成的标题但前端/列表尚未刷新，会在后续 loadThreads 时显示新标题
         def generate():
             full_response = ''
             try:
-                for content in rag_answer_stream(question, username=username, top_k=5):
+                # 将 thread_id 传入 rag_answer_stream，要求 rag_agent 根据 thread_id 使用该会话的独立知识库
+                for content in rag_answer_stream(question, username=username, top_k=5, thread_id=thread_id):
                     full_response += content
                     yield f"data: {json.dumps({'content': content})}\n\n"
                 # 保存助手回答为消息
@@ -112,8 +147,11 @@ def ask_stream():
                     add_message(thread_id, username, 'assistant', full_response)
                 except Exception as e:
                     print("保存助手消息失败：", e)
-                # 返回 thread_id 以便前端跟踪（最后一条返回）
-                yield f"data: {json.dumps({'meta': {'thread_id': thread_id}})}\n\n"
+                # 返回 thread_id 与可能的标题（以便前端在需要时更新显示）
+                meta = {'thread_id': thread_id}
+                if generated_title:
+                    meta['title'] = generated_title
+                yield f"data: {json.dumps({'meta': meta})}\n\n"
                 yield "data: [DONE]\n\n"
             except Exception as e:
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -164,14 +202,19 @@ def logout():
     session.pop('user', None)
     return redirect(url_for('login_page'))
 
-# 新增：列出当前用户上传的文档
-def list_user_documents(username: str, limit: int = 100):
+# 新增：列出当前用户上传的文档（支持按 thread_id 过滤）
+def list_user_documents(username: str, limit: int = 100, thread_id: int = None):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute('SELECT id, filename, stored_at, segment_count FROM documents WHERE username = ? ORDER BY id DESC LIMIT ?', (username, limit))
+    if thread_id is None:
+        # 未指定 thread_id 时，查询所有文件
+        cur.execute('SELECT id, filename, stored_at, segment_count, thread_id FROM documents WHERE username = ? ORDER BY id DESC LIMIT ?', (username, limit))
+    else:
+        # 指定 thread_id 时，仅查询该会话的文件
+        cur.execute('SELECT id, filename, stored_at, segment_count, thread_id FROM documents WHERE username = ? AND thread_id = ? ORDER BY id DESC LIMIT ?', (username, thread_id, limit))
     rows = cur.fetchall()
     conn.close()
-    return [{'id': r[0], 'filename': r[1], 'stored_at': r[2], 'segment_count': r[3]} for r in rows]
+    return [{'id': r[0], 'filename': r[1], 'stored_at': r[2], 'segment_count': r[3], 'thread_id': r[4]} for r in rows]
 
 # 新增：获取某个文档的分段（确保归属）
 def get_document_segments(username: str, document_id: int):
@@ -192,7 +235,12 @@ def get_document_segments(username: str, document_id: int):
 def my_documents():
     if not session.get('user'):
         return jsonify({'error': '未登录'}), 401
-    items = list_user_documents(session.get('user'))
+    thread_id = request.args.get('thread_id')
+    try:
+        thread_id = int(thread_id) if thread_id not in (None, '', 'null') else None
+    except Exception:
+        thread_id = None
+    items = list_user_documents(session.get('user'), thread_id=thread_id)
     return jsonify({'items': items})
 
 # 新增接口：返回指定文档的分段
@@ -204,6 +252,65 @@ def my_document_segments(doc_id):
     if segs is None:
         return jsonify({'error': '未找到该文档或无权限'}), 404
     return jsonify({'segments': segs})
+
+@app.route('/my_documents/<int:doc_id>', methods=['DELETE'])
+def delete_my_document(doc_id):
+    if not session.get('user'):
+        return jsonify({'error': '未登录'}), 401
+    username = session.get('user')
+
+    # 可选来自前端的 thread_id（用于额外校验）
+    q_thread = request.args.get('thread_id')
+    try:
+        q_thread = int(q_thread) if q_thread not in (None, '', 'null') else None
+    except Exception:
+        q_thread = None
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute('SELECT id, username, filename, thread_id FROM documents WHERE id = ?', (doc_id,))
+    row = cur.fetchone()
+    if not row:
+        conn.close()
+        return jsonify({'success': False, 'error': '未找到该文档'}), 404
+
+    doc_owner = row[1]
+    doc_thread = row[3]
+    if doc_owner != username:
+        conn.close()
+        return jsonify({'success': False, 'error': '无权限删除该文档'}), 403
+
+    # 如果前端提供了 thread_id，则强验证其与该文档的 thread_id 相同（加强会话隔离）
+    if q_thread is not None and doc_thread is not None and int(q_thread) != int(doc_thread):
+        conn.close()
+        return jsonify({'success': False, 'error': '请求的会话与文档所属会话不匹配'}), 400
+
+    # 获取该文档的所有 vector_id
+    cur.execute('SELECT vector_id FROM document_segments WHERE document_id = ?', (doc_id,))
+    rows = cur.fetchall()
+    vector_ids = [r[0] for r in rows if r and r[0]]
+
+    # 删除向量：选择对应命名空间（thread 独立命名）
+    try:
+        db = VectorDB(username=username, thread_id=doc_thread)
+        if vector_ids:
+            db.delete_documents(vector_ids)
+    except Exception as e:
+        # 若删除向量失败，记录但继续删除 DB 记录
+        print("删除向量失败：", e)
+
+    # 删除 DB 中 segments 与 document 记录
+    try:
+        cur.execute('DELETE FROM document_segments WHERE document_id = ?', (doc_id,))
+        cur.execute('DELETE FROM documents WHERE id = ?', (doc_id,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({'success': False, 'error': f'删除数据库记录失败: {e}'}), 500
+
+    conn.close()
+    return jsonify({'success': True})
 
 if __name__ == '__main__':
     app.run(debug=True)

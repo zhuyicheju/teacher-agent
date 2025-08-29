@@ -1,6 +1,7 @@
 from search_knowledge import search_similar_knowledge
 from zhipuai import ZhipuAI
 import datetime
+from typing import Optional
 
 def classify_question_level(question: str, client) -> int:
     """
@@ -324,10 +325,11 @@ def generate_subquestion_second(context: str, question: str, client) -> str:
         pass
     return content
 
-def rag_answer_stream(question: str, username: str = None, top_k: int = 5):
+def rag_answer_stream(question: str, username: str = None, top_k: int = 5, thread_id: Optional[int] = None):
     """
     检索相关知识并结合LLM流式生成答案。
     username 用于在该用户的知识库中检索知识（若 None 则在全局库检索）。
+    thread_id 可选；若提供，则会使用线程隔离的知识库标识（例如 username + thread_id 路径）。
     """
     client = ZhipuAI(api_key="98ed0ed5a81f4a958432644de29cb547.LLhUp4oWijSoizYc")
     print(f"[原始问题] {question}")
@@ -338,7 +340,7 @@ def rag_answer_stream(question: str, username: str = None, top_k: int = 5):
         # 1级：先改写，再检索，再流式总结
         rewritten = rewrite_question(question, client)
         print(f"[改写后问题] {rewritten}")
-        related_knowledge = search_similar_knowledge(rewritten, top_k=top_k, username=username)
+        related_knowledge = search_similar_knowledge(rewritten, top_k=top_k, username=username, thread_id=thread_id)
         context = "\n".join([item["document"] for item in related_knowledge])
         yield from summarize_answer_stream(question, context, client)
 
@@ -348,7 +350,7 @@ def rag_answer_stream(question: str, username: str = None, top_k: int = 5):
         print(f"[分解为子问题] {sub_questions}")
         all_context = []
         for subq in sub_questions:
-            related_knowledge = search_similar_knowledge(subq, top_k=top_k, username=username)
+            related_knowledge = search_similar_knowledge(subq, top_k=top_k, username=username, thread_id=thread_id)
             context = "\n".join([item["document"] for item in related_knowledge])
             all_context.append(f"子问题：{subq}\n{context}")
         merged_context = "\n\n".join(all_context)
@@ -365,10 +367,10 @@ def rag_answer_stream(question: str, username: str = None, top_k: int = 5):
         print(f"[分解为关键词1] {keywords1}")
         pre_contexts = []
         for kw in keywords1:
-            rel = search_similar_knowledge(kw, top_k=top_k, username=username)
+            rel = search_similar_knowledge(kw, top_k=top_k, username=username, thread_id=thread_id)
             ctx = "\n".join([item["document"] for item in rel])
             pre_contexts.append(f"关键词：{kw}\n{ctx}")
-            found_knowledges.extend(rel)  # 新增：保存检索到的知识
+            found_knowledges.extend(rel)  # 保存检索到的知识
         pre_knowledge = "\n\n".join(pre_contexts)
         knowledge_system.append(pre_knowledge)
 
@@ -382,10 +384,10 @@ def rag_answer_stream(question: str, username: str = None, top_k: int = 5):
         print(f"[子问题1分解为关键词2] {keywords2}")
         sub1_contexts = []
         for kw in keywords2:
-            rel = search_similar_knowledge(kw, top_k=top_k, username=username)
+            rel = search_similar_knowledge(kw, top_k=top_k, username=username, thread_id=thread_id)
             ctx = "\n".join([item["document"] for item in rel])
             sub1_contexts.append(f"关键词：{kw}\n{ctx}")
-            found_knowledges.extend(rel)  # 新增：保存检索到的知识
+            found_knowledges.extend(rel)
         sub1_knowledge = "\n\n".join(sub1_contexts)
         knowledge_system.append(sub1_knowledge)
 
@@ -400,10 +402,10 @@ def rag_answer_stream(question: str, username: str = None, top_k: int = 5):
         print(f"[子问题2分解为关键词3] {keywords3}")
         sub2_contexts = []
         for kw in keywords3:
-            rel = search_similar_knowledge(kw, top_k=top_k, username=username)
+            rel = search_similar_knowledge(kw, top_k=top_k, username=username, thread_id=thread_id)
             ctx = "\n".join([item["document"] for item in rel])
             sub2_contexts.append(f"关键词：{kw}\n{ctx}")
-            found_knowledges.extend(rel)  # 新增：保存检索到的知识
+            found_knowledges.extend(rel)
         sub2_knowledge = "\n\n".join(sub2_contexts)
         knowledge_system.append(sub2_knowledge)
 

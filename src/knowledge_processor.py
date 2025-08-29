@@ -22,7 +22,8 @@ def ensure_docs_tables():
             username TEXT NOT NULL,
             filename TEXT NOT NULL,
             stored_at TEXT NOT NULL,
-            segment_count INTEGER NOT NULL
+            segment_count INTEGER NOT NULL,
+            thread_id INTEGER DEFAULT NULL
         )
     ''')
     cur.execute('''
@@ -35,6 +36,16 @@ def ensure_docs_tables():
             FOREIGN KEY(document_id) REFERENCES documents(id)
         )
     ''')
+    # 如果已存在旧表但没有 thread_id 列，尝试添加该列（兼容已有 DB）
+    try:
+        cur.execute("PRAGMA table_info(documents)")
+        cols = [r[1] for r in cur.fetchall()]
+        if 'thread_id' not in cols:
+            cur.execute('ALTER TABLE documents ADD COLUMN thread_id INTEGER DEFAULT NULL')
+    except Exception:
+        # 忽略无法添加的异常（老 SQLite 可能不支持或已添加）
+        pass
+
     conn.commit()
     conn.close()
 
@@ -96,10 +107,19 @@ def upload_file():
     if file.filename == '':
         return jsonify({"error": "文件名为空"}), 400
 
+    # 支持可选的 thread_id（表单字段或查询字符串）
+    thread_id = request.form.get('thread_id') or request.args.get('thread_id')
+    try:
+        thread_id = int(thread_id) if thread_id not in (None, '', 'null') else None
+    except Exception:
+        thread_id = None
+
+    # 修改：按用户和会话分层存储文件
     raw_documents_dir = os.path.join(os.path.dirname(__file__), '..', 'data', 'raw_documents')
-    raw_documents_dir = os.path.abspath(raw_documents_dir)
-    os.makedirs(raw_documents_dir, exist_ok=True)
-    file_path = os.path.join(raw_documents_dir, f"{user}__{file.filename}")
+    user_dir = os.path.join(raw_documents_dir, user)
+    thread_dir = os.path.join(user_dir, f"thread_{thread_id}" if thread_id else "no_thread")
+    os.makedirs(thread_dir, exist_ok=True)
+    file_path = os.path.join(thread_dir, file.filename)
     file.save(file_path)
 
     try:
@@ -110,18 +130,22 @@ def upload_file():
     vector_error = None
     stored_ids = []
     try:
-        # 为当前用户创建 VectorDB（按用户隔离）
-        db = VectorDB(username=user)
-        # metadata 包含 username 与 source_file
-        metadatas = [{"username": user, "source_file": file.filename, "segment_index": i+1} for i in range(len(processed_segments))]
-        ids = [f"{user}__{os.path.splitext(file.filename)[0]}_seg_{i+1:04d}" for i in range(len(processed_segments))]
+        # 使用按用户/会话隔离的 VectorDB（传入 username 与 thread_id）
+        db = VectorDB(username=user, thread_id=thread_id)
+        # metadata 包含 username、source_file、thread_id 与 segment_index
+        metadatas = [{"username": user, "source_file": file.filename, "thread_id": thread_id, "segment_index": i+1} for i in range(len(processed_segments))]
+        # ids 加入 user/thread 信息以便唯一识别
+        if thread_id is not None:
+            ids = [f"{user}__thread_{thread_id}__{os.path.splitext(file.filename)[0]}_seg_{i+1:04d}" for i in range(len(processed_segments))]
+        else:
+            ids = [f"{user}__{os.path.splitext(file.filename)[0]}_seg_{i+1:04d}" for i in range(len(processed_segments))]
         stored_ids = db.add_documents(processed_segments, metadatas=metadatas, ids=ids)
 
-        # 在 users.db 中记录 document 与 segments
+        # 在 users.db 中记录 document 与 segments（包含 thread_id）
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
-        cur.execute('INSERT INTO documents (username, filename, stored_at, segment_count) VALUES (?, ?, ?, ?)',
-                    (user, file.filename, datetime.utcnow().isoformat(), len(processed_segments)))
+        cur.execute('INSERT INTO documents (username, filename, stored_at, segment_count, thread_id) VALUES (?, ?, ?, ?, ?)',
+                    (user, file.filename, datetime.utcnow().isoformat(), len(processed_segments), thread_id))
         doc_id = cur.lastrowid
         for idx, vid in enumerate(stored_ids, start=1):
             preview = processed_segments[idx-1][:200]

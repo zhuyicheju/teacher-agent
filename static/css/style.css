@@ -1,89 +1,463 @@
+/* 全局与主题变量 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+:root{
+  --bg: #ffffff;
+  --panel: #f8fafc;
+  --card: #ffffff;
+  --muted: #6b7280;
+  --accent: #10b981;     /* 绿色主色 */
+  --accent-600: #059669;
+  --glass: rgba(0,0,0,0.03);
+  --radius: 10px;
+  --shadow: 0 6px 20px rgba(16,24,40,0.06);
+  --text: #0f1724;
+  --topbar-height: 120px; /* 顶部（nav + 标题）大致高度，用于计算三栏可用高度，可根据实际调整 */
+
+  --bg-gradient: radial-gradient(circle at 10% 10%, rgba(16,185,129,0.04), transparent 12%),
+                 radial-gradient(circle at 90% 90%, rgba(5,150,105,0.03), transparent 18%),
+                 var(--bg);
+  --card-glass: rgba(255,255,255,0.9);
+  --nav-ink: rgba(255,255,255,0.95);
+  --muted-2: rgba(15,23,36,0.6);
+}
+
+/* 基础布局/字体 */
+html, body { height:100%; }
 body {
-    font-family: Arial, sans-serif;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-    background: #f2f4f7;
+  font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  margin:0;
+  padding:0;
+  background: var(--bg-gradient);
+  background-color: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
 }
 
+/* 通用容器，主应用占满视口（但 auth 页面覆盖） */
 .container {
-    background: #fff;
-    padding: 18px;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  display:flex;
+  flex-direction:column;
+  min-height:100vh;
+  width:100%;
+  padding:20px;
+  box-sizing:border-box;
+  background: transparent;
 }
 
-textarea, input[type="file"] {
-    width: 100%;
-    margin-bottom: 10px;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    resize: vertical;
+/* 顶部导航/品牌 */
+nav {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(5,150,105,0.06));
+  box-shadow: 0 6px 18px rgba(5,150,105,0.04), inset 0 -1px 0 rgba(255,255,255,0.02);
+  color: var(--nav-ink);
+}
+.brand {
+  font-weight:700;
+  color: #136d31;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  font-size:18px;
+  letter-spacing:0.2px;
+  margin-right:8px;
+}
+.brand .logo {
+  width:34px;
+  height:34px;
+  border-radius:8px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  background: linear-gradient(180deg,var(--accent),var(--accent-600));
+  color:#fff;
+  box-shadow: 0 4px 12px rgba(5,150,105,0.12);
+  font-size:14px;
+}
+.nav-right { margin-left:auto; display:flex; gap:12px; align-items:center; color:var(--muted); font-size:14px; }
+
+/* 卡片风格（浅色） */
+.card {
+  background: linear-gradient(180deg, var(--card-glass), rgba(255,255,255,0.98));
+  border: 1px solid rgba(15,23,36,0.04);
+  box-shadow: 0 10px 30px rgba(15,23,36,0.05);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px rgba(15,23,36,0.07);
 }
 
-button {
-    background-color: #4CAF50;
-    color: white;
-    padding: 8px 14px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-button:hover {
-    background-color: #45a049;
-}
-
-.response {
-    margin-top: 10px;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background-color: white;
-    min-height: 60px;
-}
-
-/* 三列布局 */
+/* 三栏布局：左/中/右，右占70% */
 .layout.three-col {
-    display: grid;
-    grid-template-columns: 260px 360px 1fr;
-    gap: 16px;
-    align-items: start;
+  flex:1;
+  display:grid;
+  grid-template-columns: 15% 15% 70%;
+  gap:16px;
+  align-items:start;
+  min-height:0;
+  /* 移除对 --topbar-height 的依赖，使用父级 flex 布局与 min-height:0 让内容正确收缩 */
+  /* height: calc(100vh - var(--topbar-height) - 40px); */ /* 已移除 */
 }
 
-/* left */
-.left { width:100%; border:1px solid #e6e9ef; padding:10px; background:#fafbfc; border-radius:6px; }
-.thread-item { padding:6px; border-bottom:1px solid #eee; cursor:pointer; }
-.thread-item.active { background:#eef6ff; }
-.doc-item { padding:6px; border-bottom:1px dashed #eee; cursor:pointer; font-size:13px; }
-.doc-item:hover { background:#fcfeff; }
+/* 各栏占满三栏容器高度，再确保 main 在 flex 布局中可收缩 */
+.left, .center, .main {
+  /* 明确允许在父容器内收缩，避免被内容撑开 */
+  min-height: 0;
+  box-sizing: border-box;
+}
+/* 左侧使用 flex 列布局，使底部上传区可通过 margin-top:auto 固定在最下方 */
+.left {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  /* 不设置 overflow:auto 在 left 上，内部 list 使用其自身的滚动规则 */
+}
+/* 中间保持滚动 */
+.center { height: 100%; overflow: auto; padding:12px; }
+.main { height: 100%; padding:12px; display:flex; flex-direction:column; gap:12px; overflow: hidden; }
 
-/* center (segments) */
-.center { border:1px solid #e6e9ef; padding:10px; background:#fff; border-radius:6px; max-height:640px; overflow:auto; }
-.segment-card { border:1px solid #f0f0f0; padding:8px; margin-bottom:8px; border-radius:6px; background:#fbfbfb; }
-.seg-header { font-size:12px; color:#666; margin-bottom:6px; }
-.seg-body { white-space:pre-wrap; color:#222; }
+/* 聊天消息窗口强制在父容器内滚动 */
+.chat-window {
+  /* 固定为视口高度的 70%，确保聊天区域高度恒定，超出时显示滚动条 */
+  height: 70vh;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid rgba(15,23,36,0.04);
+  box-shadow: inset 0 8px 30px rgba(15,23,36,0.02);
 
-/* right (chat) */
-.main { border:1px solid #e6e9ef; padding:10px; background:#fff; border-radius:6px; display:flex; flex-direction:column; gap:8px; min-height:520px; }
-.chat-header { margin-bottom:4px; }
-.chat-window { flex:1; border:1px solid #eee; padding:12px; border-radius:6px; background:#fbfcfe; overflow:auto; max-height:420px; }
+  /* 取消对 flex 收缩的依赖，使用固定高度避免父容器被撑高 */
+  flex: none;
+  min-height: 0;
+}
+
+/* 控件样式 */
+button, .btn {
+  border: none;
+  cursor: pointer;
+  border-radius: 8px;
+  padding:8px 12px;
+  font-weight:600;
+  font-size:14px;
+  transition: transform 150ms ease, box-shadow 150ms ease, opacity 120ms ease;
+}
+.btn-ghost {
+  color: var(--muted);
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(15,23,36,0.03);
+}
+.btn-primary {
+  background: linear-gradient(180deg, var(--accent), var(--accent-600));
+  color: #ffffff;
+  box-shadow: 0 8px 22px rgba(5,150,105,0.12);
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(5,150,105,0.14); }
+.btn-danger {
+  background:#ff6b6b; color:#fff;
+}
+
+/* 输入、textarea、file */
+input[type="text"], input[type="password"], textarea, input[type="file"] {
+  background: #fff;
+  border:1px solid rgba(15,23,36,0.06);
+  color: var(--text);
+  padding:10px 12px;
+  border-radius:8px;
+  outline:none;
+  resize:vertical;
+  transition: box-shadow 140ms ease, border-color 140ms ease, transform 120ms ease;
+}
+
+/* 新增：自定义文件选择按钮与文件名展示 */
+.sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0);
+  border: 0;
+}
+.file-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.file-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-600));
+  color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  box-shadow: 0 8px 22px rgba(5,150,105,0.12);
+  transition: transform 140ms ease, box-shadow 140ms ease, opacity 120ms ease;
+  user-select: none;
+}
+.file-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(5,150,105,0.14); }
+.file-btn:focus { outline: 3px solid rgba(16,185,129,0.12); outline-offset: 3px; }
+.file-name {
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 小屏适配：按钮换行并保证文件名可读 */
+@media (max-width:600px) {
+  .file-picker { gap:8px; }
+  .file-name { max-width: 140px; font-size:12px; }
+}
+
+/* 左侧列表项 */
+.thread-item, .doc-item {
+  padding:10px;
+  border-radius:8px;
+  margin-bottom:8px;
+  background: transparent;
+  border:1px solid rgba(15,23,36,0.04);
+  color: var(--text);
+}
+.thread-item.active, .doc-item.active { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.18); }
+
+/* 删除按钮位置调整 */
+.thread-item, .doc-item { position: relative; padding-right: 56px; }
+.item-delete-btn {
+  position:absolute; right:8px; top:8px; display:none; padding:6px 8px; border-radius:6px; font-size:12px;
+  background:#ef4444; color:#fff; border:none; cursor:pointer;
+}
+.thread-item:hover .item-delete-btn, .doc-item:hover .item-delete-btn { display:inline-block; }
+
+/* 文档分段样式（浅色） */
+.segment { padding:10px; border-radius:8px; margin-bottom:8px; border:1px solid rgba(15,23,36,0.04); background:#fff; }
+.seg-header { font-size:12px; color:var(--muted); margin-bottom:6px; }
+.seg-body { white-space:pre-wrap; color:var(--text); }
+
+/* 聊天区域：气泡调整，确保用户文本可见 */
+.chat-header { font-size:14px; color: var(--text); display:flex; align-items:center; gap:8px; }
 .chat-input { display:flex; flex-direction:column; gap:8px; }
-.chat-actions { display:flex; gap:8px; }
 
-/* 聊天气泡 */
-.msg { margin-bottom:10px; max-width:85%; }
-.msg-meta { font-size:11px; color:#777; margin-bottom:6px; }
-.msg-body { padding:10px; border-radius:8px; background:#fff; border:1px solid #eaeef5; white-space:pre-wrap; }
-.msg.user { align-self:flex-end; text-align:right; }
-.msg.user .msg-body { background:#dcf8c6; border-color:#cbe6a8; }
-.msg.assistant { align-self:flex-start; }
-.msg.assistant .msg-body { background:#ffffff; }
-
-@media (max-width: 1000px) {
-    .layout.three-col { grid-template-columns: 1fr 1fr; }
-    .center { order:2; }
-    .main { order:1; }
-    .left { order:3; }
+/* 消息气泡：默认字体为深色，用户气泡为绿色背景+白字 */
+.msg { margin-bottom:12px; display:flex; flex-direction:column; max-width:85%; }
+.msg-meta { font-size:12px; color: var(--muted); margin-bottom:6px; }
+.msg-body {
+  padding:12px;
+  border-radius:12px;
+  background: #f3f4f6;
+  border:1px solid rgba(15,23,36,0.04);
+  color:var(--text);
+  white-space:pre-wrap;
+  font-size: 14px;
+  line-height: 1.55;
+  transition: background 160ms ease, transform 120ms ease;
+  box-shadow: 0 4px 14px rgba(15,23,36,0.02);
 }
+/* 用户气泡：绿色，白字，确保文字可见 */
+.msg.user { align-self:flex-end; text-align:right; }
+.msg.user .msg-body {
+  background: linear-gradient(180deg, var(--accent), var(--accent-600));
+  color:#ffffff;
+  border-color: rgba(5,150,105,0.18);
+  box-shadow: 0 8px 26px rgba(5,150,105,0.06);
+}
+/* 助手气泡：浅灰背景深色字 */
+.msg.assistant { align-self:flex-start; }
+.msg.assistant .msg-body {
+  background: #ffffff;
+  color:var(--text);
+  border-color: rgba(15,23,36,0.04);
+}
+
+/* upload response 调整颜色 */
+.response { margin-top:10px; padding:10px; border-radius:8px; background:#fafafa; border:1px solid rgba(15,23,36,0.04); color:var(--muted); }
+
+/* 左侧各列表区域使用独立可滚动容器 */
+.left .list-section { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+.left .list-section .list {
+  overflow: auto;
+  max-height: calc((100vh - var(--topbar-height)) * 0.5);
+  padding-right: 6px;
+}
+
+/* auth 页面（覆盖 container 样式使其居中，浅色） */
+.container.auth {
+  display:block;
+  /* 覆盖掉 .container 的 min-height:100vh，使 auth 卡片根据内容自适应高度 */
+  min-height: 0;
+  height: auto;
+  /* 减小页面顶部间距，避免看起来“太长” */
+  margin: 40px auto;
+  /* 明确盒模型与宽度：在窄屏时保留左右边距（避免贴边），在宽屏时受 max-width 限制 */
+  box-sizing: border-box;
+  width: calc(100% - 48px); /* 页面左右各留 24px 间距，避免贴边 */
+  max-width: 550px; /* 保持最大宽度 */
+  /* padding 保持或微调以适配新高度 */
+  padding: 28px;
+}
+
+/* 保证 brand 内部对齐（不变更视觉） */
+.container.auth .brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 auto 6px;
+}
+.container.auth .brand .logo {
+  width:40px;
+  height:40px;
+  border-radius:10px;
+  font-size:15px;
+  font-weight:700;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow: 0 6px 18px rgba(5,150,105,0.12);
+}
+
+/* auth 表单排版 */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 25px; /* 增大控件垂直间距（从 12px -> 18px） */
+  margin-top: 6px;
+  width: 100%;
+}
+
+/* 按钮在表单内占满宽度（只在 auth 表单内应用） */
+.auth-form .btn { width: 100%; justify-content:center; }
+.auth-actions { display: block; margin: 14px 0 0; padding: 0; gap:8px; } /* 增加上边距，按钮与输入框间距更大 */
+
+/* 统一表单控件盒模型与最大宽度，防止 padding/边距导致视觉不一致 */
+.auth-form,
+.auth-form input[type="text"],
+.auth-form input[type="password"],
+.auth-form .btn,
+.auth-form .btn-primary {
+  box-sizing: border-box;
+  max-width: 100%;
+  display: block;
+}
+
+/* 输入与主按钮同宽同高（确保不超出父容器并保持内边距一致） */
+.auth-form input[type="text"],
+.auth-form input[type="password"] {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.2;
+  border-radius: 10px;
+}
+
+/* 主按钮占满宽度，与输入对齐 */
+.auth-form .btn-primary {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 14px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+/* 焦点更明显 */
+.auth-form input:focus {
+  outline: none;
+  border-color: rgba(16,185,129,0.26);
+  box-shadow: 0 8px 26px rgba(16,185,129,0.06);
+  transform: translateY(-1px);
+}
+
+/* 标题与描述 */
+.auth-title { font-size: 20px; margin: 0; color: var(--text); }
+.auth-desc { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+/* 提示/错误信息 */
+.auth-msg {
+  min-height: 20px;
+  font-size: 13px;
+  color: #b91c1c; /* 红色错误提示 */
+  margin-top: 4px;
+}
+
+/* 次要链接按钮/文本居中处理 */
+.container.auth p { margin: 8px 0 0; }
+.container.auth a.btn-ghost { padding:6px 12px; width: auto; }
+
+/* 在小屏上保持舒适的左右内边距 */
+@media (max-width:420px) {
+  .container.auth { margin: 20px 12px; padding: 18px; }
+  .auth-form {
+    gap: 14px; /* 小屏适当减少，但仍比原始更宽松 */
+  }
+  .auth-form input[type="text"], .auth-form input[type="password"], .auth-form .btn-primary {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  .auth-actions { margin-top: 12px; }
+}
+
+/* 小屏适配 */
+@media (max-width:1000px){
+  .layout.three-col { grid-template-columns: 1fr; grid-auto-rows: auto; }
+  .left, .center, .main { height:auto; }
+}
+
+/* 改进的滚动条样式 - 使其更明显 */
+::-webkit-scrollbar {
+  height: 12px;
+  width: 12px;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* 为Firefox添加滚动条样式 */
+.left, .center, .main, .chat-window {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) rgba(0, 0, 0, 0.05);
+}
+
+/* 修复：把滚动锁在聊天窗口，防止页面随消息增长拉长 */
+.layout.three-col {
+  /* 避免子元素内容把整个页面撑高 */
+  overflow: hidden;
+}
+
+.main {
+  /* 不让 main 自己滚动，将滚动留给内部的 chat-window */
+  overflow: hidden;
+  min-height: 0; /* 确保 flex 子项可以收缩 */
+}
+
+/* 确保消息窗口在内部滚动 */
+.chat-window {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* 可选：调试用边框，确认滚动层级（调试完成后可删除） */
+/* #messages { outline: 2px solid red; } */

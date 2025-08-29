@@ -1,11 +1,12 @@
 from vector_db import VectorDB
 
-def search_similar_knowledge(question: str, top_k: int = 5, username: str = None):
+def search_similar_knowledge(question: str, top_k: int = 5, username: str = None, thread_id: int = None):
     """
     根据问题 question，在指定 username 的向量库中检索相似知识（若 username 为 None 则使用全局库）。
+    支持按 thread_id 在用户目录下的会话子目录中检索。
     返回列表：{document, metadata, distance}
     """
-    db = VectorDB(username=username)
+    db = VectorDB(username=username, thread_id=thread_id)
     results = db.query(question, top_k=top_k)
     if not results or not results.get('documents'):
         return []

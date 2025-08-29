@@ -5,31 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>问答系统</title>
     <link rel="stylesheet" href="/static/css/style.css"/>
-    <!-- 新增：删除按钮样式（尽量与现有样式兼容） -->
-    <style>
-        /* filepath: c:\Users\w3113\Desktop\teacher-agent\templates\index.html (style additions) */
-        .thread-item, .doc-item {
-            position: relative;
-            padding-right: 60px; /* 给删除按钮留出位置 */
-        }
-        .item-delete-btn {
-            position: absolute;
-            right: 8px;
-            top: 8px;
-            display: none;
-            background: #e74c3c;
-            color: #fff;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .thread-item:hover .item-delete-btn,
-        .doc-item:hover .item-delete-btn {
-            display: inline-block;
-        }
-    </style>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css">
@@ -38,42 +13,57 @@
 <body>
     <div class="container">
         <nav>
-            <span>已登录：{{ user }}</span>
-            <a href="/logout" style="margin-left:10px;">退出登录</a>
+            <div class="brand"><span class="logo">TA</span> 您的专业科研助手·Teacher-Agent</div>
+            <div class="nav-right">
+                <span>已登录：{{ user }}</span>
+                <a href="/logout" class="btn btn-ghost btn-sm">退出</a>
+            </div>
         </nav>
 
-        <h1>问答系统</h1>
+        <h1 style="margin:6px 0 12px 0;color:var(--text)">问答系统</h1>
 
-        <!-- 三列布局：left / center(segments) / right(chat) -->
         <div class="layout three-col">
-            <div class="left">
-                <div style="margin-bottom:8px;">
-                    <button onclick="createThreadPrompt()">新建会话</button>
-                    <button onclick="loadThreads()">刷新会话</button>
+            <div class="left card" style="display: flex; flex-direction: column;">
+                <div style="display:flex;gap:8px;margin-bottom:12px;">
+                    <button class="btn btn-primary" onclick="createThreadPrompt()">新建会话</button>
+                    <button class="btn btn-ghost" onclick="loadThreads()">刷新</button>
                 </div>
 
-                <div>
-                    <h4>会话</h4>
-                    <div id="threadList">加载中...</div>
+                <div class="list-section">
+                    <h4 style="color:var(--muted);margin-top:0">会话</h4>
+                    <div id="threadList" class="list">加载中...</div>
                 </div>
 
-                <div style="margin-top:12px;">
-                    <h4>已上传文件</h4>
-                    <div id="docList">加载中...</div>
-                    <div style="margin-top:6px;">
-                        <button onclick="loadDocuments()">刷新文件列表</button>
+                <hr style="border:none;height:1px;background:rgba(15,23,36,0.04);margin:12px 0" />
+
+                <div class="list-section">
+                    <h4 style="color:var(--muted);margin:0 0 8px 0">已上传文件</h4>
+                    <div id="docList" class="list">加载中...</div>
+                    <div style="margin-top:8px"><button class="btn btn-ghost" onclick="loadDocuments()">刷新文件</button></div>
+                </div>
+
+                <div style="margin-top:auto;padding-top:12px;border-top:1px solid rgba(15,23,36,0.04);">
+                    <h4 style="color:var(--muted);margin:0 0 8px 0">上传文档</h4>
+                    <div class="file-picker">
+                        <input id="fileInput" type="file" accept=".pdf,.docx" class="sr-only">
+                        <label for="fileInput" class="file-btn">选择文件</label>
+                        <span id="fileName" class="file-name">未选择文件</span>
+                        <input id="uploadPath" type="text" value="/my_documents" placeholder="/my_documents" 
+                               style="border:1px solid rgba(15,23,36,0.06);padding:6px 8px;border-radius:8px;width:180px;">
+                        <button class="btn btn-primary" onclick="uploadFile()">上传文档</button>
+                        <div id="uploadResponse" class="response" style="display: none;"></div>
                     </div>
                 </div>
             </div>
 
-            <div class="center">
-                <h4>文档分段预览</h4>
+            <div class="center card">
+                <h4 style="color:var(--muted);margin-top:0">文档分段预览</h4>
                 <div id="segments">请选择左侧文件查看分段预览</div>
             </div>
 
-            <div class="main">
+            <div class="main card">
                 <div class="chat-header">
-                    <strong>当前会话：</strong><span id="currentThread">无（新建或选择会话）</span>
+                    <strong style="color:var(--text)">当前会话：</strong><span id="currentThread" style="color:var(--muted)">无（新建或选择会话）</span>
                 </div>
 
                 <div id="messages" class="chat-window">请选择或新建会话以查看消息</div>
@@ -81,21 +71,13 @@
                 <div class="chat-input">
                     <textarea id="question" placeholder="请输入你的问题..." style="height:72px"></textarea>
                     <div class="chat-actions">
-                        <button onclick="askQuestion()">提交问题</button>
+                        <button class="btn btn-primary" onclick="askQuestion()">提交问题</button>
                     </div>
-                </div>
-
-                <div style="margin-top:12px">
-                    <h4>上传文档</h4>
-                    <input type="file" id="fileInput" accept=".pdf,.docx">
-                    <button onclick="uploadFile()">上传文档</button>
-                    <div id="uploadResponse" class="response" style="display: none;"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 把内联脚本替换为外部脚本引用，方便维护 -->
-	<script src="/static/js/app.js"></script>
+    <script src="/static/js/app.js"></script>
 </body>
 </html>
