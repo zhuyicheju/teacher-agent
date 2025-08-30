@@ -2,7 +2,7 @@
 import os
 from flask import Flask, request, jsonify, render_template, Response, session, redirect, url_for
 from knowledge_processor import knowledge_processor_app
-from rag_agent import rag_answer_stream  # 新增
+from rag_agent import rag_answer_stream, generate_title_sync  # 新增
 import json  # 新增
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -106,13 +106,10 @@ def ask_stream():
             except Exception as e:
                 print("保存用户消息失败：", e)
 
-            # 使用大模型对第一个问题生成简短会话标题（同步收取 rag_answer_stream 的输出）
+            # 使用大模型对第一个问题生成简短会话标题
             try:
-                title_prompt = f"请基于用户的问题生成一句简短且明确的会话标题（尽量不超过20个字）：{question}"
-                title_buf = ''
-                for chunk in rag_answer_stream(title_prompt, username=username, top_k=1, thread_id=thread_id):
-                    title_buf += chunk
-                generated_title = (title_buf or '').strip().replace('\n',' ')
+                generated_title = generate_title_sync(question, username=username, thread_id=thread_id, top_k=1)
+                generated_title = (generated_title or '').strip().replace('\n',' ')
                 if generated_title:
                     # 截断为合理长度
                     if len(generated_title) > 80:
@@ -197,6 +194,32 @@ def login_api():
     else:
         return jsonify({'success': False, 'error': '用户名或密码错误'}), 401
 
+@app.route('/admin_login', methods=['GET'])
+def admin_login_page():
+    # 渲染管理员登录页（可直接访问，实际登录凭据由后端校验）
+    return render_template('admin_login.html')
+
+@app.route('/admin_login', methods=['POST'])
+def admin_login_api():
+    # 支持 JSON 或表单提交
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+    else:
+        data = request.form or {}
+    username = (data.get('username') or '').strip()
+    password = data.get('password') or ''
+    # 仅允许 admin 用户通过此入口登录为管理员
+    if username != 'admin':
+        return jsonify({'success': False, 'error': '仅允许管理员账户'}), 403
+    try:
+        if verify_user(username, password):
+            session['user'] = 'admin'
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': '用户名或密码错误'}), 401
+    except Exception as e:
+        return jsonify({'success': False, 'error': '验证失败'}), 500
+
 @app.route('/logout', methods=['GET'])
 def logout():
     session.pop('user', None)
@@ -207,11 +230,11 @@ def list_user_documents(username: str, limit: int = 100, thread_id: int = None):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     if thread_id is None:
-        # 未指定 thread_id 时，查询所有文件
-        cur.execute('SELECT id, filename, stored_at, segment_count, thread_id FROM documents WHERE username = ? ORDER BY id DESC LIMIT ?', (username, limit))
+        # 未指定 thread_id 时，查询所有文件，返回时使用 original_filename（回退到 filename）
+        cur.execute('SELECT id, COALESCE(original_filename, filename) as filename, stored_at, segment_count, thread_id FROM documents WHERE username = ? ORDER BY id DESC LIMIT ?', (username, limit))
     else:
         # 指定 thread_id 时，仅查询该会话的文件
-        cur.execute('SELECT id, filename, stored_at, segment_count, thread_id FROM documents WHERE username = ? AND thread_id = ? ORDER BY id DESC LIMIT ?', (username, thread_id, limit))
+        cur.execute('SELECT id, COALESCE(original_filename, filename) as filename, stored_at, segment_count, thread_id FROM documents WHERE username = ? AND thread_id = ? ORDER BY id DESC LIMIT ?', (username, thread_id, limit))
     rows = cur.fetchall()
     conn.close()
     return [{'id': r[0], 'filename': r[1], 'stored_at': r[2], 'segment_count': r[3], 'thread_id': r[4]} for r in rows]
@@ -311,6 +334,31 @@ def delete_my_document(doc_id):
 
     conn.close()
     return jsonify({'success': True})
+
+@app.route('/admin', methods=['GET'])
+def admin_page():
+    # 仅 admin 用户可访问该页面
+    if session.get('user') != 'admin':
+        return redirect(url_for('index'))
+    # 返回简单 HTML（依赖 static/js/app.js 中的 openAdminPanel 实现）
+    return """
+    <!doctype html>
+    <html>
+    <head><meta charset="utf-8"><title>管理员界面</title></head>
+    <body>
+      <div id="admin-root"></div>
+      <div id="admin-output"></div>
+      <script src="/static/js/app.js"></script>
+      <script>
+        // 等待 app.js 注册 openAdminPanel 后调用
+        (function waitAndOpen(){
+          if (window.openAdminPanel) window.openAdminPanel();
+          else setTimeout(waitAndOpen, 150);
+        })();
+      </script>
+    </body>
+    </html>
+    """
 
 if __name__ == '__main__':
     app.run(debug=True)

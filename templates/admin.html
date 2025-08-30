@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-cn">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>管理员界面 - Teacher-Agent</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+</head>
+<body>
+    <nav>
+        <div class="brand"><span class="logo">TA</span> 管理员面板</div>
+        <div class="nav-right">
+            <span class="user-info">已登录：{{ user if user else 'admin' }}</span>
+            <a href="/" class="btn btn-ghost btn-sm">返回首页</a>
+            <a href="/logout" class="btn btn-ghost btn-sm">退出</a>
+        </div>
+    </nav>
+
+    <main class="admin-main">
+        <header class="page-header">
+            <h1>管理员面板</h1>
+            <p class="subtitle">在此可查看并管理所有用户的会话与知识库（仅限管理员账号）。</p>
+        </header>
+
+        <div id="admin-root" class="admin-content"></div>
+
+        <div id="admin-output" class="admin-output"></div>
+    </main>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        (function waitAndOpen(){
+            if (window.openAdminPanel) {
+                window.openAdminPanel();
+            } else {
+                setTimeout(waitAndOpen, 150);
+            }
+        })();
+    </script>
+</body>
+</html>

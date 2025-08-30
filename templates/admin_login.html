@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-cn">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>管理员登录 - Teacher-Agent</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <div class="brand">
+                <span class="logo">TA</span>
+                <span class="brand-text">Teacher-Agent</span>
+            </div>
+            <div class="nav-right">
+                <a href="/login" class="btn btn-ghost btn-sm">返回用户登录</a>
+            </div>
+        </nav>
+
+        <div class="page-header">
+            <h1>管理员登录</h1>
+            <p class="subtitle">使用管理员账号登录系统</p>
+        </div>
+
+        <div class="layout single-col">
+            <div class="center card auth-card">
+                <div class="auth-header">
+                    <div class="brand">
+                        <div class="logo">TA</div>
+                        管理员登录 · Teacher-Agent
+                    </div>
+                </div>
+
+                <form id="admin-login-form" class="auth-form">
+                    <div class="form-group">
+                        <label for="admin-username" class="sr-only">用户名</label>
+                        <input id="admin-username" type="text" placeholder="管理员用户名" value="admin" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="admin-password" class="sr-only">密码</label>
+                        <input id="admin-password" type="password" placeholder="密码" required>
+                    </div>
+
+                    <div class="auth-actions">
+                        <button id="admin-login-btn" class="btn btn-primary full-width" type="submit">登录为管理员</button>
+                    </div>
+
+                    <div id="admin-msg" class="auth-msg" aria-live="polite"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const u = document.getElementById('admin-username').value.trim();
+            const p = document.getElementById('admin-password').value;
+            const msg = document.getElementById('admin-msg');
+            const btn = document.getElementById('admin-login-btn');
+            
+            msg.textContent = '';
+            msg.className = 'auth-msg';
+            btn.disabled = true;
+            
+            try {
+                const res = await fetch('/admin_login', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ username: u, password: p })
+                });
+                const j = await res.json();
+                if (res.ok && j.success) {
+                    msg.textContent = '登录成功，正在跳转...';
+                    msg.className = 'auth-msg success';
+                    window.location.href = '/admin';
+                } else {
+                    msg.textContent = j.error || '登录失败，请检查用户名和密码';
+                    msg.className = 'auth-msg error';
+                }
+            } catch (e) {
+                msg.textContent = '网络请求失败，请检查网络连接';
+                msg.className = 'auth-msg error';
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -2,6 +2,7 @@ from search_knowledge import search_similar_knowledge
 from zhipuai import ZhipuAI
 import datetime
 from typing import Optional
+import re  # 新增：用于规范化换行
 
 def classify_question_level(question: str, client) -> int:
     """
@@ -157,12 +158,37 @@ def decompose_question(question: str, client) -> list:
         subs = [s.strip("[]\"' ") for s in content.replace("，", ",").split(",") if s.strip()]
     return subs[:3]
 
+def generate_title_sync(question: str, username: str = None, client: ZhipuAI = None, thread_id: Optional[int] = None, top_k: int = 1) -> str:
+    """
+    同步生成会话标题（非流式），不使用 summarize_answer_stream。
+    返回清洗后的单行标题字符串。
+    """
+    if client is None:
+        client = ZhipuAI(api_key="98ed0ed5a81f4a958432644de29cb547.LLhUp4oWijSoizYc")
+    prompt = f"请基于用户的问题生成一句简短且明确的会话标题（尽量不超过20个字）：{question}"
+    try:
+        resp = client.chat.completions.create(
+            model="glm-4-0520",
+            messages=[{"role": "user", "content": prompt}],
+            stream=False
+        )
+        content = resp.choices[0].message.content.strip() if getattr(resp, 'choices', None) else str(resp)
+    except Exception as e:
+        # 返回空字符串以在调用端处理错误
+        print("generate_title_sync error:", e)
+        content = ""
+    # 简单清洗：去多余换行/空白
+    title = re.sub(r"\s+", " ", content).strip()
+    if len(title) > 120:
+        title = title[:120].rstrip() + "..."
+    return title
+
 def summarize_answer_stream(question: str, context: str, client):
     """
     用大模型根据知识片段流式总结最终答案。
     """
     prompt = (
-        f"已知知识如下：\n{context}\n\n请根据上述知识，简明、准确地回答用户问题：{question}"
+        f"已知知识如下：\n{context}\n\n请根据上述知识，简明、准确地回答用户问题：{question}。"
     )
     response = client.chat.completions.create(
         model="glm-4-0520",
@@ -173,8 +199,11 @@ def summarize_answer_stream(question: str, context: str, client):
         for chunk in response:
             if hasattr(chunk, 'choices') and chunk.choices:
                 delta = chunk.choices[0].delta
-                if hasattr(delta, 'content') and delta.content:
-                    yield delta.content
+                content = getattr(delta, 'content', '') or ''
+                if content:
+                    # 同步打印到服务器终端，便于实时查看（不改变返回内容）
+                    print(content, end='', flush=True)
+                    yield content
     except Exception as e:
         yield f"[ERROR]{str(e)}"
 
@@ -426,7 +455,10 @@ def rag_answer_stream(question: str, username: str = None, top_k: int = 5, threa
             for chunk in response:
                 if hasattr(chunk, 'choices') and chunk.choices:
                     delta = chunk.choices[0].delta
-                    if hasattr(delta, 'content') and delta.content:
-                        yield delta.content
+                    content = getattr(delta, 'content', '') or ''
+                    if content:
+                        # 打印到终端以便调试/监控
+                        print(content, end='', flush=True)
+                        yield content
         except Exception as e:
             yield f"[ERROR]{str(e)}"

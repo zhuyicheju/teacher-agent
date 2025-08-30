@@ -2,37 +2,55 @@
 <html lang="zh-cn">
 <head>
     <meta charset="utf-8">
-    <title>注册</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>注册 - Teacher-Agent</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <div class="container auth card">
-        <div style="text-align:center;margin-bottom:6px;">
-            <div class="brand" style="font-size:20px;color:var(--text)">
-                <div class="logo">TA</div>
-                您的专业科研助手·Teacher-Agent
+    <div class="container">
+        <nav>
+            <div class="brand">
+                <span class="logo">TA</span>
+                <span class="brand-text">Teacher-Agent</span>
+            </div>
+            <div class="nav-right">
+                <a href="/login" class="btn btn-ghost btn-sm">去登录</a>
+            </div>
+        </nav>
+
+        <div class="page-header">
+            <h1>用户注册</h1>
+            <p class="subtitle">创建账号以开始使用 Teacher Agent</p>
+        </div>
+
+        <div class="layout single-col">
+            <div class="center card auth-card">
+                <div class="auth-header">
+                    <div class="brand">
+                        <div class="logo">TA</div>
+                        您的专业科研助手·Teacher-Agent
+                    </div>
+                </div>
+
+                <form class="auth-form">
+                    <div class="form-group">
+                        <label for="username" class="sr-only">用户名</label>
+                        <input id="username" type="text" placeholder="用户名" required autofocus>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password" class="sr-only">密码</label>
+                        <input id="password" type="password" placeholder="密码（至少6位）" minlength="6" required>
+                    </div>
+
+                    <div class="auth-actions">
+                        <button id="register-btn" class="btn btn-primary full-width" type="submit">注册</button>
+                    </div>
+
+                    <div id="msg" class="auth-msg" aria-live="polite"></div>
+                </form>
             </div>
         </div>
-        <h1 class="auth-title">注册</h1>
-        <p class="auth-desc">创建账号以开始使用 Teacher Agent，保护您的教学资源与数据。</p>
-
-        <form class="auth-form">
-            <label class="sr-only" for="username">用户名</label>
-            <input id="username" type="text" placeholder="用户名" required autofocus>
-
-            <label class="sr-only" for="password">密码</label>
-            <input id="password" type="password" placeholder="密码（至少6位）" minlength="6" required>
-
-            <div class="auth-actions">
-                <button id="register-btn" class="btn btn-primary" type="submit">注册</button>
-            </div>
-
-            <div id="msg" class="auth-msg" aria-live="polite"></div>
-
-            <p style="text-align:center;margin-top:6px;">
-                <a href="/login" class="btn btn-ghost btn-sm" role="button">去登录</a>
-            </p>
-        </form>
     </div>
     <script src="/static/js/auth.js"></script>
 </body>
