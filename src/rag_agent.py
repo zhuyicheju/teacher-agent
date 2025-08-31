@@ -1,6 +1,8 @@
 from search_knowledge import search_similar_knowledge
 from zhipuai import ZhipuAI
 import datetime
+from typing import Optional
+import re  # 新增：用于规范化换行
 
 def classify_question_level(question: str, client) -> int:
     """
@@ -156,12 +158,37 @@ def decompose_question(question: str, client) -> list:
         subs = [s.strip("[]\"' ") for s in content.replace("，", ",").split(",") if s.strip()]
     return subs[:3]
 
+def generate_title_sync(question: str, username: str = None, client: ZhipuAI = None, thread_id: Optional[int] = None, top_k: int = 1) -> str:
+    """
+    同步生成会话标题（非流式），不使用 summarize_answer_stream。
+    返回清洗后的单行标题字符串。
+    """
+    if client is None:
+        client = ZhipuAI(api_key="98ed0ed5a81f4a958432644de29cb547.LLhUp4oWijSoizYc")
+    prompt = f"请基于用户的问题生成一句简短且明确的会话标题（尽量不超过20个字）：{question}"
+    try:
+        resp = client.chat.completions.create(
+            model="glm-4-0520",
+            messages=[{"role": "user", "content": prompt}],
+            stream=False
+        )
+        content = resp.choices[0].message.content.strip() if getattr(resp, 'choices', None) else str(resp)
+    except Exception as e:
+        # 返回空字符串以在调用端处理错误
+        print("generate_title_sync error:", e)
+        content = ""
+    # 简单清洗：去多余换行/空白
+    title = re.sub(r"\s+", " ", content).strip()
+    if len(title) > 120:
+        title = title[:120].rstrip() + "..."
+    return title
+
 def summarize_answer_stream(question: str, context: str, client):
     """
     用大模型根据知识片段流式总结最终答案。
     """
     prompt = (
-        f"已知知识如下：\n{context}\n\n请根据上述知识，简明、准确地回答用户问题：{question}"
+        f"已知知识如下：\n{context}\n\n请根据上述知识，简明、准确地回答用户问题：{question}。"
     )
     response = client.chat.completions.create(
         model="glm-4-0520",
@@ -172,8 +199,11 @@ def summarize_answer_stream(question: str, context: str, client):
         for chunk in response:
             if hasattr(chunk, 'choices') and chunk.choices:
                 delta = chunk.choices[0].delta
-                if hasattr(delta, 'content') and delta.content:
-                    yield delta.content
+                content = getattr(delta, 'content', '') or ''
+                if content:
+                    # 同步打印到服务器终端，便于实时查看（不改变返回内容）
+                    print(content, end='', flush=True)
+                    yield content
     except Exception as e:
         yield f"[ERROR]{str(e)}"
 
@@ -324,10 +354,11 @@ def generate_subquestion_second(context: str, question: str, client) -> str:
         pass
     return content
 
-def rag_answer_stream(question: str, username: str = None, top_k: int = 5):
+def rag_answer_stream(question: str, username: str = None, top_k: int = 5, thread_id: Optional[int] = None):
     """
     检索相关知识并结合LLM流式生成答案。
     username 用于在该用户的知识库中检索知识（若 None 则在全局库检索）。
+    thread_id 可选；若提供，则会使用线程隔离的知识库标识（例如 username + thread_id 路径）。
     """
     client = ZhipuAI(api_key="98ed0ed5a81f4a958432644de29cb547.LLhUp4oWijSoizYc")
     print(f"[原始问题] {question}")
@@ -338,7 +369,7 @@ def rag_answer_stream(question: str, username: str = None, top_k: int = 5):
         # 1级：先改写，再检索，再流式总结
         rewritten = rewrite_question(question, client)
         print(f"[改写后问题] {rewritten}")
-        related_knowledge = search_similar_knowledge(rewritten, top_k=top_k, username=username)
+        related_knowledge = search_similar_knowledge(rewritten, top_k=top_k, username=username, thread_id=thread_id)
         context = "\n".join([item["document"] for item in related_knowledge])
         yield from summarize_answer_stream(question, context, client)
 
@@ -348,7 +379,7 @@ def rag_answer_stream(question: str, username: str = None, top_k: int = 5):
         print(f"[分解为子问题] {sub_questions}")
         all_context = []
         for subq in sub_questions:
-            related_knowledge = search_similar_knowledge(subq, top_k=top_k, username=username)
+            related_knowledge = search_similar_knowledge(subq, top_k=top_k, username=username, thread_id=thread_id)
             context = "\n".join([item["document"] for item in related_knowledge])
             all_context.append(f"子问题：{subq}\n{context}")
         merged_context = "\n\n".join(all_context)
@@ -365,10 +396,10 @@ def rag_answer_stream(question: str, username: str = None, top_k: int = 5):
         print(f"[分解为关键词1] {keywords1}")
         pre_contexts = []
         for kw in keywords1:
-            rel = search_similar_knowledge(kw, top_k=top_k, username=username)
+            rel = search_similar_knowledge(kw, top_k=top_k, username=username, thread_id=thread_id)
             ctx = "\n".join([item["document"] for item in rel])
             pre_contexts.append(f"关键词：{kw}\n{ctx}")
-            found_knowledges.extend(rel)  # 新增：保存检索到的知识
+            found_knowledges.extend(rel)  # 保存检索到的知识
         pre_knowledge = "\n\n".join(pre_contexts)
         knowledge_system.append(pre_knowledge)
 
@@ -382,10 +413,10 @@ def rag_answer_stream(question: str, username: str = None, top_k: int = 5):
         print(f"[子问题1分解为关键词2] {keywords2}")
         sub1_contexts = []
         for kw in keywords2:
-            rel = search_similar_knowledge(kw, top_k=top_k, username=username)
+            rel = search_similar_knowledge(kw, top_k=top_k, username=username, thread_id=thread_id)
             ctx = "\n".join([item["document"] for item in rel])
             sub1_contexts.append(f"关键词：{kw}\n{ctx}")
-            found_knowledges.extend(rel)  # 新增：保存检索到的知识
+            found_knowledges.extend(rel)
         sub1_knowledge = "\n\n".join(sub1_contexts)
         knowledge_system.append(sub1_knowledge)
 
@@ -400,10 +431,10 @@ def rag_answer_stream(question: str, username: str = None, top_k: int = 5):
         print(f"[子问题2分解为关键词3] {keywords3}")
         sub2_contexts = []
         for kw in keywords3:
-            rel = search_similar_knowledge(kw, top_k=top_k, username=username)
+            rel = search_similar_knowledge(kw, top_k=top_k, username=username, thread_id=thread_id)
             ctx = "\n".join([item["document"] for item in rel])
             sub2_contexts.append(f"关键词：{kw}\n{ctx}")
-            found_knowledges.extend(rel)  # 新增：保存检索到的知识
+            found_knowledges.extend(rel)
         sub2_knowledge = "\n\n".join(sub2_contexts)
         knowledge_system.append(sub2_knowledge)
 
@@ -424,7 +455,10 @@ def rag_answer_stream(question: str, username: str = None, top_k: int = 5):
             for chunk in response:
                 if hasattr(chunk, 'choices') and chunk.choices:
                     delta = chunk.choices[0].delta
-                    if hasattr(delta, 'content') and delta.content:
-                        yield delta.content
+                    content = getattr(delta, 'content', '') or ''
+                    if content:
+                        # 打印到终端以便调试/监控
+                        print(content, end='', flush=True)
+                        yield content
         except Exception as e:
             yield f"[ERROR]{str(e)}"

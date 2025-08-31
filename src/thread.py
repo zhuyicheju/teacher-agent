@@ -3,6 +3,7 @@ import sqlite3
 from flask import Blueprint, request, jsonify, session
 from pathlib import Path
 from datetime import datetime
+from vector_db import VectorDB  # 新增导入
 
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(base_dir, 'data', 'users.db')
@@ -43,6 +44,14 @@ def create_thread(username: str, title: str = None) -> int:
     thread_id = cur.lastrowid
     conn.commit()
     conn.close()
+
+    # 立即为该会话初始化一个独立的 VectorDB（创建持久化目录与 collection）
+    try:
+        VectorDB(username=username, thread_id=thread_id)  # 直接传入分开参数
+    except Exception as e:
+        # 忽略初始化失败，但记录日志以便排查
+        print(f"初始化会话知识库失败: {e}")
+
     return thread_id
 
 def thread_belongs_to_user(thread_id: int, username: str) -> bool:
@@ -107,4 +116,5 @@ def thread_messages(thread_id):
     msgs = get_thread_messages(session.get('user'), thread_id)
     if msgs is None:
         return jsonify({'error': '未找到线程或无权限'}), 404
+    return jsonify({'messages': msgs})
     return jsonify({'messages': msgs})
