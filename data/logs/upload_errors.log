@@ -1434,3 +1434,183 @@ RuntimeError: µ÷ÓÃ ZhipuAI Éú³ÉÇ¶ÈëÊ§°Ü: Error code: 400, with error text {"erro
 2025-08-31 00:05:41,996 INFO werkzeug: 127.0.0.1 - - [31/Aug/2025 00:05:41] "GET /my_documents?thread_id=24 HTTP/1.1" 200 -
 2025-08-31 00:05:41,999 INFO werkzeug: 127.0.0.1 - - [31/Aug/2025 00:05:41] "GET /threads/24/messages HTTP/1.1" 200 -
 2025-08-31 00:05:43,293 INFO werkzeug: 127.0.0.1 - - [31/Aug/2025 00:05:43] "GET /my_documents/21/segments HTTP/1.1" 200 -
+2025-09-02 14:34:51,406 INFO werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-09-02 14:34:51,406 INFO werkzeug: [33mPress CTRL+C to quit[0m
+2025-09-02 14:34:51,408 INFO werkzeug:  * Restarting with stat
+2025-09-02 14:34:52,943 WARNING werkzeug:  * Debugger is active!
+2025-09-02 14:34:52,951 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 14:35:04,224 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\main.py', reloading
+2025-09-02 14:35:04,272 INFO werkzeug:  * Restarting with stat
+2025-09-02 14:35:05,543 WARNING werkzeug:  * Debugger is active!
+2025-09-02 14:35:05,546 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 14:35:13,167 INFO werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-09-02 14:35:13,167 INFO werkzeug: [33mPress CTRL+C to quit[0m
+2025-09-02 14:35:13,168 INFO werkzeug:  * Restarting with stat
+2025-09-02 14:35:14,757 WARNING werkzeug:  * Debugger is active!
+2025-09-02 14:35:14,759 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 14:35:51,508 INFO werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-09-02 14:35:51,508 INFO werkzeug: [33mPress CTRL+C to quit[0m
+2025-09-02 14:35:51,509 INFO werkzeug:  * Restarting with stat
+2025-09-02 14:35:53,088 WARNING werkzeug:  * Debugger is active!
+2025-09-02 14:35:53,091 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 14:37:35,358 INFO werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-09-02 14:37:35,359 INFO werkzeug: [33mPress CTRL+C to quit[0m
+2025-09-02 14:37:35,359 INFO werkzeug:  * Restarting with stat
+2025-09-02 14:37:36,861 WARNING werkzeug:  * Debugger is active!
+2025-09-02 14:37:36,864 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 14:38:04,386 INFO werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-09-02 14:38:04,386 INFO werkzeug: [33mPress CTRL+C to quit[0m
+2025-09-02 14:38:04,387 INFO werkzeug:  * Restarting with stat
+2025-09-02 14:38:05,878 WARNING werkzeug:  * Debugger is active!
+2025-09-02 14:38:05,882 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 14:43:28,215 INFO werkzeug: 127.0.0.1 - - [02/Sep/2025 14:43:28] "[32mGET / HTTP/1.1[0m" 302 -
+2025-09-02 14:43:28,228 INFO werkzeug: 127.0.0.1 - - [02/Sep/2025 14:43:28] "GET /login HTTP/1.1" 200 -
+2025-09-02 14:43:28,847 INFO werkzeug: 127.0.0.1 - - [02/Sep/2025 14:43:28] "GET /static/css/style.css HTTP/1.1" 200 -
+2025-09-02 14:43:28,915 INFO werkzeug: 127.0.0.1 - - [02/Sep/2025 14:43:28] "GET /static/js/auth.js HTTP/1.1" 200 -
+2025-09-02 14:43:30,256 INFO werkzeug: 127.0.0.1 - - [02/Sep/2025 14:43:30] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-09-02 14:43:41,670 INFO werkzeug: 127.0.0.1 - - [02/Sep/2025 14:43:41] "[31m[1mPOST /login HTTP/1.1[0m" 401 -
+2025-09-02 16:10:59,996 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\knowledge.py', reloading
+2025-09-02 16:11:00,155 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:11:02,032 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:11:02,036 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:12:11,572 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\threads.py', reloading
+2025-09-02 16:12:11,612 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:12:13,077 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:12:13,080 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:13:32,889 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\my_documents.py', reloading
+2025-09-02 16:13:32,934 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:13:34,303 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:13:34,307 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:17:42,704 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\exception\\errorhandler.py', reloading
+2025-09-02 16:17:42,756 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:17:44,575 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:17:44,577 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:22:56,670 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\upload.py', reloading
+2025-09-02 16:22:56,719 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:22:57,935 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:22:57,938 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:28:03,173 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\index.py', reloading
+2025-09-02 16:28:03,222 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:28:04,959 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:28:04,962 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:29:01,218 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\ask.py', reloading
+2025-09-02 16:29:01,259 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:29:02,707 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:29:02,710 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:30:38,917 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\register.py', reloading
+2025-09-02 16:30:38,969 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:30:40,555 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:30:40,558 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:30:51,840 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\logout.py', reloading
+2025-09-02 16:30:51,877 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:30:53,345 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:30:53,348 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:33:13,559 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\my_documents.py', reloading
+2025-09-02 16:33:13,604 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:33:15,435 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:33:15,439 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:33:27,774 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\my_documents.py', reloading
+2025-09-02 16:33:27,819 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:33:29,304 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:33:29,307 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:33:49,807 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\my_documents.py', reloading
+2025-09-02 16:33:49,848 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:33:51,541 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:33:51,544 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:34:48,855 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\admin.py', reloading
+2025-09-02 16:34:48,902 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:34:50,349 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:34:50,352 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:42:40,846 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\threads.py', reloading
+2025-09-02 16:42:40,905 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:42:42,741 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:42:42,744 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:46:39,071 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\index.py', reloading
+2025-09-02 16:46:39,116 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:46:40,480 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:46:40,484 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:52:54,602 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\admin.py', reloading
+2025-09-02 16:52:54,668 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:52:55,871 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:52:55,874 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:53:25,589 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\admin.py', reloading
+2025-09-02 16:53:25,636 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:53:27,252 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:53:27,255 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:53:38,569 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\admin.py', reloading
+2025-09-02 16:53:38,638 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:53:40,240 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:53:40,243 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:54:07,912 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\admin.py', reloading
+2025-09-02 16:54:07,960 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:54:09,559 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:54:09,562 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 16:55:34,156 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\admin.py', reloading
+2025-09-02 16:55:34,197 INFO werkzeug:  * Restarting with stat
+2025-09-02 16:55:35,656 WARNING werkzeug:  * Debugger is active!
+2025-09-02 16:55:35,659 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:08:17,432 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\admin_login.py', reloading
+2025-09-02 17:08:17,477 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:08:19,076 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:08:19,079 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:08:44,721 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\admin_login.py', reloading
+2025-09-02 17:08:44,762 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:08:46,671 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:08:46,673 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:09:09,211 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\ask.py', reloading
+2025-09-02 17:09:09,257 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:09:10,745 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:09:10,748 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:09:12,825 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\ask.py', reloading
+2025-09-02 17:09:12,865 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:09:14,413 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:09:14,415 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:09:25,699 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\generate_title.py', reloading
+2025-09-02 17:09:25,739 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:09:27,633 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:09:27,636 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:09:39,953 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\admin.py', reloading
+2025-09-02 17:09:40,060 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:09:41,666 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:09:41,669 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:10:00,133 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\generate_title.py', reloading
+2025-09-02 17:10:00,177 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:10:02,049 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:10:02,052 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:10:07,202 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\generate_title.py', reloading
+2025-09-02 17:10:07,246 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:10:08,860 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:10:08,862 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:11:00,086 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\generate_title.py', reloading
+2025-09-02 17:11:00,165 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:11:01,989 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:11:01,992 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:11:08,171 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\index.py', reloading
+2025-09-02 17:11:08,219 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:11:09,914 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:11:09,917 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:11:23,251 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\knowledge_titles.py', reloading
+2025-09-02 17:11:23,288 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:11:24,881 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:11:24,885 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:11:41,290 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\adapter\\controller\\knowledge_titles.py', reloading
+2025-09-02 17:11:41,332 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:11:42,753 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:11:42,756 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:30:30,180 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\domain\\Appfactory.py', reloading
+2025-09-02 17:30:30,272 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:30:31,848 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:30:31,852 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:32:38,463 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\domain\\Appfactory.py', reloading
+2025-09-02 17:32:38,505 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:32:39,943 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:32:39,947 INFO werkzeug:  * Debugger PIN: 105-362-830
+2025-09-02 17:33:22,941 INFO werkzeug:  * Detected change in 'C:\\Users\\zhuyicheju\\Desktop\\code\\teacher-agent\\src\\cola\\domain\\Appfactory.py', reloading
+2025-09-02 17:33:22,987 INFO werkzeug:  * Restarting with stat
+2025-09-02 17:33:24,592 WARNING werkzeug:  * Debugger is active!
+2025-09-02 17:33:24,596 INFO werkzeug:  * Debugger PIN: 105-362-830
