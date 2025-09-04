@@ -1,4 +1,7 @@
+import traceback
+
 from flask import jsonify, request, session
+from cola.domain.factory.Repositoryfactory import thread_repository, document_segments_repository, message_repository, documents_repository
 
 class ThreadService:
     def __init__(self):
@@ -9,26 +12,19 @@ class ThreadService:
             return jsonify({'error': '未登录'}), 401
         username = session.get('user')
 
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
         # 校验线程归属
-        cur.execute('SELECT 1 FROM threads WHERE id = ? AND username = ?', (thread_id, username))
-        if not cur.fetchone():
-            conn.close()
+        row = thread_repository.verify_thread_ownership(thread_id, username)
+        if not row:
             return jsonify({'error': '未找到线程或无权限'}), 404
 
         try:
             # 获取该线程下的所有文档 id
-            cur.execute('SELECT id FROM documents WHERE thread_id = ? AND username = ?', (thread_id, username))
-            docs = [r[0] for r in cur.fetchall()]
+            rows = thread_repository.get_documents(thread_id, username)
+            docs = [r[0] for r in rows]
 
             # 收集所有 vector_id
-            vector_ids = []
-            if docs:
-                cur.execute('SELECT vector_id FROM document_segments WHERE document_id IN ({seq})'.format(
-                    seq=','.join(['?'] * len(docs))
-                ), docs)
-                vector_ids = [r[0] for r in cur.fetchall() if r and r[0]]
+            rows = document_segments_repository.get_vector_ids_by_docs(docs)
+            vector_ids = [r[0] for r in rows if r and r[0]]
 
             # 删除向量（在对应命名空间/collection）
             try:
@@ -57,31 +53,23 @@ class ThreadService:
             except Exception as e:
                 print("移除 raw_documents 失败：", e)
 
+            ##事务
             # 在事务中删除 DB 中的 messages、document_segments、documents、threads
             try:
-                cur.execute('DELETE FROM messages WHERE thread_id = ? AND username = ?', (thread_id, username))
+                message_repository.delete_messages(thread_id, username)
                 if docs:
-                    cur.execute('DELETE FROM document_segments WHERE document_id IN ({seq})'.format(
-                        seq=','.join(['?'] * len(docs))
-                    ), docs)
-                    cur.execute('DELETE FROM documents WHERE id IN ({seq}) AND username = ?'.format(
-                        seq=','.join(['?'] * len(docs))
-                    ), docs + [username])
-                cur.execute('DELETE FROM threads WHERE id = ? AND username = ?', (thread_id, username))
-                conn.commit()
+                    document_segments_repository.delete_segments_by_docs(docs)
+                    documents_repository.delete_documents(docs)
+
+                thread_repository.delete_thread(thread_id, username)
             except Exception as e:
-                conn.rollback()
                 print("删除数据库记录失败：", e, traceback.format_exc())
-                conn.close()
                 return jsonify({'error': f'删除数据库记录失败: {e}'}), 500
 
         except Exception as e:
-            conn.rollback()
-            conn.close()
             print("删除线程过程中出错：", e, traceback.format_exc())
             return jsonify({'error': str(e)}), 500
 
-        conn.close()
         return jsonify({'success': True})
 
     def thread_list(self):

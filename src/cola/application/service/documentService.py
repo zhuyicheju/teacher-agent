@@ -1,4 +1,7 @@
+import traceback
+
 from flask import session, jsonify, request
+from cola.domain.factory.Repositoryfactory import documents_repository, document_segments_repository
 
 class DocumentService:
     def __init__(self):
@@ -33,12 +36,13 @@ class DocumentService:
             return jsonify({'error': '未找到该文档或无权限'}), 404
         filename, doc_thread = res
 
+        ##这些数据库操作都得组成一个事务
+
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
         try:
             # 获取该文档的所有 vector_id
-            cur.execute('SELECT vector_id FROM document_segments WHERE document_id = ?', (doc_id,))
-            rows = cur.fetchall()
+            rows = document_segments_repository.get_vector_ids_by_docs(doc_id)
             vector_ids = [r[0] for r in rows if r and r[0]]
 
             # 删除向量：选择对应命名空间（thread 独立命名）
@@ -51,15 +55,10 @@ class DocumentService:
 
             # 删除 DB 记录（先分段再文档）
             try:
-                cur.execute('DELETE FROM document_segments WHERE document_id = ?', (doc_id,))
-                cur.execute('DELETE FROM documents WHERE id = ? AND username = ?', (doc_id, username))
-                conn.commit()
+                document_segments_repository.delete_segments_by_doc(doc_id)
+                documents_repository.delete_documents(doc_id)
             except Exception as e:
-                conn.rollback()
-                conn.close()
                 return jsonify({'error': str(e)}), 500
-        finally:
-            conn.close()
 
         # 尝试从磁盘删除对应文件（如果能定位到）以及可能的原始路径
         try:
@@ -120,28 +119,21 @@ class DocumentService:
         except Exception:
             q_thread = None
 
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute('SELECT id, username, filename, thread_id FROM documents WHERE id = ?', (doc_id,))
-        row = cur.fetchone()
+        row = documents_repository.get_document_info(doc_id)
         if not row:
-            conn.close()
             return jsonify({'success': False, 'error': '未找到该文档'}), 404
 
         doc_owner = row[1]
         doc_thread = row[3]
         if doc_owner != username:
-            conn.close()
             return jsonify({'success': False, 'error': '无权限删除该文档'}), 403
 
         # 如果前端提供了 thread_id，则强验证其与该文档的 thread_id 相同（加强会话隔离）
         if q_thread is not None and doc_thread is not None and int(q_thread) != int(doc_thread):
-            conn.close()
             return jsonify({'success': False, 'error': '请求的会话与文档所属会话不匹配'}), 400
 
         # 获取该文档的所有 vector_id
-        cur.execute('SELECT vector_id FROM document_segments WHERE document_id = ?', (doc_id,))
-        rows = cur.fetchall()
+        rows = document_segments_repository.get_vector_ids_by_docs(doc_id)
         vector_ids = [r[0] for r in rows if r and r[0]]
 
         # 删除向量：选择对应命名空间（thread 独立命名）
@@ -155,15 +147,11 @@ class DocumentService:
 
         # 删除 DB 中 segments 与 document 记录
         try:
-            cur.execute('DELETE FROM document_segments WHERE document_id = ?', (doc_id,))
-            cur.execute('DELETE FROM documents WHERE id = ?', (doc_id,))
-            conn.commit()
+            document_segments_repository.delete_segments_by_doc(doc_id)
+            documents_repository.delete_documents(doc_id)
         except Exception as e:
-            conn.rollback()
-            conn.close()
             return jsonify({'success': False, 'error': f'删除数据库记录失败: {e}'}), 500
 
-        conn.close()
         return jsonify({'success': True})
 
     def upload_file(self):
@@ -240,26 +228,21 @@ class DocumentService:
             stored_ids = db.add_documents(processed_segments, metadatas=metadatas, ids=ids)
 
             # 在 users.db 中记录 document 与 segments（包含 thread_id），同时保存 original_filename
-            conn = sqlite3.connect(DB_PATH)
-            cur = conn.cursor()
             # 适配可能不存在 original_filename 列的旧 DB（ensure_docs_tables 已添加列，但以防）
             try:
-                cur.execute(
-                    'INSERT INTO documents (username, filename, original_filename, stored_at, segment_count, thread_id) VALUES (?, ?, ?, ?, ?, ?)',
-                    (user, filename, original_filename, datetime.utcnow().isoformat(), len(processed_segments),
-                     thread_id))
+                documents_repository.insert_documents(user, filename, original_filename, datetime.utcnow().isoformat(), len(processed_segments),
+                     thread_id)
             except Exception:
                 # 退回到没有 original_filename 列的插入（兼容性）
-                cur.execute(
-                    'INSERT INTO documents (username, filename, stored_at, segment_count, thread_id) VALUES (?, ?, ?, ?, ?)',
-                    (user, filename, datetime.utcnow().isoformat(), len(processed_segments), thread_id))
-                # 尝试更新 original_filename 列（若存在）
-                try:
-                    doc_id_temp = cur.lastrowid
-                    cur.execute('UPDATE documents SET original_filename = ? WHERE id = ?',
-                                (original_filename, doc_id_temp))
-                except Exception:
-                    pass
+                documents_repository.insert_documents_no_origin_name(user, filename, datetime.utcnow().isoformat(), len(processed_segments),
+                     thread_id)
+                # # 尝试更新 original_filename 列（若存在）
+                # try:
+                #     doc_id_temp = cur.lastrowid
+                #     cur.execute('UPDATE documents SET original_filename = ? WHERE id = ?',
+                #                 (original_filename, doc_id_temp))
+                # except Exception:
+                #     pass
 
             doc_id = cur.lastrowid
             for idx, vid in enumerate(stored_ids, start=1):

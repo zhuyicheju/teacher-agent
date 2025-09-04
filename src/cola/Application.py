@@ -1,6 +1,6 @@
 import os
 
-from cola.domain.Appfactory import AppFactory
+from cola.domain.factory.Appfactory import AppFactory
 
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 template_path = os.path.join(base_dir, 'templates')

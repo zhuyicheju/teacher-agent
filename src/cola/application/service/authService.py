@@ -1,4 +1,5 @@
 from flask import jsonify, session, request
+from cola.domain.business.authService import auth_service
 class AuthService:
     def __init__(self):
         pass
@@ -7,7 +8,7 @@ class AuthService:
         data = request.get_json(silent=True) or request.form
         username = data.get('username', '').strip()
         password = data.get('password', '').strip()
-        if verify_user(username, password):
+        if auth_service.verify_user(username, password):
             session['user'] = username
             return jsonify({'success': True})
         else:
@@ -18,7 +19,7 @@ class AuthService:
         data = request.get_json(silent=True) or request.form
         username = data.get('username', '').strip()
         password = data.get('password', '').strip()
-        ok, err = create_user(username, password)
+        ok, err = auth_service.create_user(username, password)
         if ok:
             # 注册成功后直接登录
             session['user'] = username

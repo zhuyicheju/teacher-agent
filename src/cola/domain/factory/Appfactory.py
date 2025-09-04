@@ -3,6 +3,8 @@ import os
 from flask import Flask
 
 class AppFactory:
+    "负责创建flask示例"
+
     _app = None
 
     @classmethod

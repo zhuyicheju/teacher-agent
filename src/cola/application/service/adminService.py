@@ -1,4 +1,8 @@
+import traceback
+
 from flask import session, jsonify, request
+from cola.domain.business.authService import auth_service
+from cola.domain.factory.Repositoryfactory import thread_repository, documents_repository, document_segments_repository, message_repository
 
 class AdminService:
     def __init__(self):
@@ -7,11 +11,9 @@ class AdminService:
     def list_threads(self):
         if session.get('user') != 'admin':
             return jsonify({'error': '无权限'}), 403
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute('SELECT id, username, title, created_at FROM threads ORDER BY id DESC')
-        rows = cur.fetchall()
-        conn.close()
+
+        ## application层透传infrastructure层
+        rows = thread_repository.list_threads()
         items = [{'id': r[0], 'username': r[1], 'title': r[2], 'created_at': r[3]} for r in rows]
         return jsonify({'items': items})
 
@@ -24,23 +26,8 @@ class AdminService:
             thread_id = int(thread_id) if thread_id not in (None, '', 'null') else None
         except Exception:
             thread_id = None
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        q = 'SELECT id, username, COALESCE(original_filename, filename), stored_at, segment_count, thread_id FROM documents'
-        conds = []
-        params = []
-        if username:
-            conds.append('username = ?');
-            params.append(username)
-        if thread_id is not None:
-            conds.append('thread_id = ?');
-            params.append(thread_id)
-        if conds:
-            q += ' WHERE ' + ' AND '.join(conds)
-        q += ' ORDER BY id DESC'
-        cur.execute(q, params)
-        rows = cur.fetchall()
-        conn.close()
+
+        rows = documents_repository.list_documents(username, thread_id)
         items = [{'id': r[0], 'username': r[1], 'filename': r[2], 'stored_at': r[3], 'segment_count': r[4],
                   'thread_id': r[5]} for r in rows]
         return jsonify({'items': items})
@@ -49,27 +36,17 @@ class AdminService:
         if session.get('user') != 'admin':
             return jsonify({'error': '无权限'}), 403
 
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        # 查出线程所属用户（若不存在则返回404）
-        cur.execute('SELECT username FROM threads WHERE id = ?', (thread_id,))
-        row = cur.fetchone()
+        row = thread_repository.get_thread_username(thread_id)
         if not row:
-            conn.close()
             return jsonify({'error': '未找到线程'}), 404
         username = row[0]
 
         try:
-            # 获取该线程下文档 id
-            cur.execute('SELECT id FROM documents WHERE thread_id = ? AND username = ?', (thread_id, username))
-            docs = [r[0] for r in cur.fetchall()]
+            row = documents_repository.list_documents(username, thread_id)
+            docs = [r[0] for r in row]
 
-            # 收集 vector_id
-            vector_ids = []
-            if docs:
-                cur.execute('SELECT vector_id FROM document_segments WHERE document_id IN ({seq})'.format(
-                    seq=','.join(['?'] * len(docs))), docs)
-                vector_ids = [r[0] for r in cur.fetchall() if r and r[0]]
+            row = document_segments_repository.get_vector_ids_by_docs(docs)
+            vector_ids = [r[0] for r in row if r and r[0]]
 
             # 删除向量
             try:
@@ -100,44 +77,34 @@ class AdminService:
 
             # 删除 DB 记录
             try:
-                cur.execute('DELETE FROM messages WHERE thread_id = ?', (thread_id,))
+                message_repository.delete_message_repository(thread_id)
                 if docs:
-                    cur.execute('DELETE FROM document_segments WHERE document_id IN ({seq})'.format(
-                        seq=','.join(['?'] * len(docs))), docs)
-                    cur.execute('DELETE FROM documents WHERE id IN ({seq})'.format(seq=','.join(['?'] * len(docs))),
-                                docs)
-                cur.execute('DELETE FROM threads WHERE id = ?', (thread_id,))
-                conn.commit()
+                    document_segments_repository.delete_segments_by_docs(docs)
+                    documents_repository.delete_documents(docs)
+                thread_repository.delete_thread(thread_id)
+                ## 组合成事务
             except Exception as e:
-                conn.rollback()
-                conn.close()
+                ##回滚
                 return jsonify({'error': f'删除数据库记录失败: {e}'}), 500
 
         except Exception as e:
-            conn.rollback()
-            conn.close()
+            ## 回滚
             return jsonify({'error': str(e)}), 500
 
-        conn.close()
         return jsonify({'success': True})
 
     def delete_document(self, doc_id):
         if session.get('user') != 'admin':
             return jsonify({'error': '无权限'}), 403
 
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute('SELECT id, username, filename, thread_id FROM documents WHERE id = ?', (doc_id,))
-        row = cur.fetchone()
+        row = documents_repository.get_document_info(doc_id)
         if not row:
-            conn.close()
             return jsonify({'error': '未找到该文档'}), 404
         owner = row[1]
         doc_thread = row[3]
 
         try:
-            cur.execute('SELECT vector_id FROM document_segments WHERE document_id = ?', (doc_id,))
-            rows = cur.fetchall()
+            rows = document_segments_repository.get_vector_ids_by_docs(doc_thread)
             vector_ids = [r[0] for r in rows if r and r[0]]
 
             try:
@@ -148,15 +115,12 @@ class AdminService:
                 print("管理员删除文档向量失败：", e, traceback.format_exc())
 
             try:
-                cur.execute('DELETE FROM document_segments WHERE document_id = ?', (doc_id,))
-                cur.execute('DELETE FROM documents WHERE id = ?', (doc_id,))
-                conn.commit()
+                document_segments_repository.delete_segments_by_doc(doc_id)
+                documents_repository.delete_documents(doc_id)
+                ##事务
             except Exception as e:
-                conn.rollback()
-                conn.close()
+                ##回滚
                 return jsonify({'error': str(e)}), 500
-        finally:
-            conn.close()
 
         # 尝试删除源文件（raw_documents）
         try:
@@ -174,18 +138,13 @@ class AdminService:
         return jsonify({'success': True})
 
     def admin_login(self):
-        # 支持 JSON 或表单提交
-        if request.is_json:
-            data = request.get_json(silent=True) or {}
-        else:
-            data = request.form or {}
+        data = request.get_json(silent=True) or request.form
         username = (data.get('username') or '').strip()
         password = data.get('password') or ''
-        # 仅允许 admin 用户通过此入口登录为管理员
         if username != 'admin':
             return jsonify({'success': False, 'error': '仅允许管理员账户'}), 403
         try:
-            if verify_user(username, password):
+            if auth_service.verify_user(username, password):
                 session['user'] = 'admin'
                 return jsonify({'success': True})
             else:
