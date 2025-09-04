@@ -25,4 +25,8 @@ class DocumentSegmentRepository:
     def delete_segments_by_doc(self, doc_id: int) -> None:
         """根据文档ID删除关联的片段"""
         query = "DELETE FROM document_segments WHERE document_id = ?"
-        self.db_client.execute_update(query, (doc_id,))
+        self.db_client.execute_update(query, (doc_id))
+
+    def add_document_segments(self, doc_id, idx, vid, preview):
+        query = "INSERT INTO document_segments (document_id, segment_index, vector_id, preview) VALUES (?, ?, ?, ?)"
+        self.db_client.execute_update(query, ((doc_id, idx, vid, preview)))

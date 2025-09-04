@@ -154,29 +154,14 @@ class DocumentService:
 
         return jsonify({'success': True})
 
-    def upload_file(self):
-        # 必须登录
-        user = session.get('user')
-        if not user:
-            return jsonify({"error": "未登录"}), 401
-
-        if 'file' not in request.files:
-            return jsonify({"error": "未发现上传文件"}), 400
-
-        file = request.files['file']
-        if not file or file.filename == '':
-            return jsonify({"error": "文件名为空"}), 400
-
+    def upload_file(self, user, file, thread_id):
         # 保存原始文件名（未经 secure_filename 改写）
         original_filename = file.filename
 
-        # 使用安全文件名并检查扩展
         filename = secure_filename(file.filename)
         if not allowed_file(filename):
             return jsonify({"error": f"不支持的文件类型，仅支持: {', '.join(sorted(ALLOWED_EXTENSIONS))}"}), 400
 
-        # 支持可选的 thread_id（表单字段或查询字符串）
-        thread_id = request.form.get('thread_id') or request.args.get('thread_id')
         try:
             thread_id = int(thread_id) if thread_id not in (None, '', 'null') else None
         except Exception:
@@ -190,7 +175,7 @@ class DocumentService:
             os.makedirs(thread_dir, exist_ok=True)
         except Exception as e:
             tb = traceback.format_exc()
-            logger.error("创建存储目录失败: %s\n%s", str(e), tb)
+            print("创建存储目录失败: %s\n%s", str(e), tb)
             return jsonify({"error": "服务器无法创建存储目录", "detail": str(e)}), 500
 
         file_path = os.path.join(thread_dir, filename)
@@ -198,14 +183,14 @@ class DocumentService:
             file.save(file_path)
         except Exception as e:
             tb = traceback.format_exc()
-            logger.error("保存上传文件失败: %s\n%s", str(e), tb)
+            print("保存上传文件失败: %s\n%s", str(e), tb)
             return jsonify({"error": "保存上传文件失败", "detail": str(e)}), 500
 
         try:
             processed_segments = process_uploaded_document(file_path)
         except Exception as e:
             tb = traceback.format_exc()
-            logger.error("读取或分割文档失败: %s\n%s", str(e), tb)
+            print("读取或分割文档失败: %s\n%s", str(e), tb)
             return jsonify({"error": "读取或分割文档失败", "detail": str(e)}), 500
 
         vector_error = None
@@ -228,35 +213,19 @@ class DocumentService:
             stored_ids = db.add_documents(processed_segments, metadatas=metadatas, ids=ids)
 
             # 在 users.db 中记录 document 与 segments（包含 thread_id），同时保存 original_filename
-            # 适配可能不存在 original_filename 列的旧 DB（ensure_docs_tables 已添加列，但以防）
-            try:
-                documents_repository.insert_documents(user, filename, original_filename, datetime.utcnow().isoformat(), len(processed_segments),
-                     thread_id)
-            except Exception:
-                # 退回到没有 original_filename 列的插入（兼容性）
-                documents_repository.insert_documents_no_origin_name(user, filename, datetime.utcnow().isoformat(), len(processed_segments),
-                     thread_id)
-                # # 尝试更新 original_filename 列（若存在）
-                # try:
-                #     doc_id_temp = cur.lastrowid
-                #     cur.execute('UPDATE documents SET original_filename = ? WHERE id = ?',
-                #                 (original_filename, doc_id_temp))
-                # except Exception:
-                #     pass
 
-            doc_id = cur.lastrowid
+            doc_id = documents_repository.insert_documents(user, filename, original_filename, datetime.utcnow().isoformat(), len(processed_segments),
+                thread_id)
+
             for idx, vid in enumerate(stored_ids, start=1):
                 preview = processed_segments[idx - 1][:200]
-                cur.execute(
-                    'INSERT INTO document_segments (document_id, segment_index, vector_id, preview) VALUES (?, ?, ?, ?)',
-                    (doc_id, idx, vid, preview))
-            conn.commit()
-            conn.close()
+                document_segments_repository.add_document_segments(doc_id, idx, vid, preview)
+                ##事务
 
         except Exception as e:
             # 记录完整堆栈到日志，便于排查 VectorDB/Chroma/嵌入相关的问题
             tb = traceback.format_exc()
-            logger.error("向量化或写入数据库失败: %s\n%s", str(e), tb)
+            print("向量化或写入数据库失败: %s\n%s", str(e), tb)
             vector_error = str(e)
 
         # 根据是否创建了 documents 记录返回 success 标志与文档信息

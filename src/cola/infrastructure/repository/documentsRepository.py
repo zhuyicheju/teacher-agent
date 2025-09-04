@@ -39,11 +39,6 @@ class DocumentsRepository():
     def insert_documents(self, username, filename, original_filename, stored_at, segment_count, thread_id):
         query = """INSERT INTO documents (username, filename, original_filename, stored_at, segment_count, thread_id)
                     VALUES (?, ?, ?, ?, ?, ?)"""
-        self.db_client.execute_update(query,
+        rowcount = self.db_client.execute_update(query,
                                      (username, filename, original_filename, stored_at, segment_count, thread_id))
-
-    def insert_documents_no_origin_name(self, username, filename, stored_at, segment_count, thread_id):
-        query = """INSERT INTO documents (username, filename, stored_at, segment_count, thread_id)
-                     VALUES (?, ?, ?, ?, ?, ?)"""
-        self.db_client.execute_update(query,
-                                     (username, filename, stored_at, segment_count, thread_id))
+        return rowcount
