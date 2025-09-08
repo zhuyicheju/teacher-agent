@@ -1,5 +1,7 @@
 from flask import jsonify, session, request
 from cola.domain.business.authService import auth_service
+
+#所有功能已分离
 class AuthService:
     def __init__(self):
         pass

@@ -42,3 +42,9 @@ class DocumentsRepository():
         rowcount = self.db_client.execute_update(query,
                                      (username, filename, original_filename, stored_at, segment_count, thread_id))
         return rowcount
+
+    def get_documents(self, thread_id, username):
+        """获取该线程下所有文档ID"""
+        query = 'SELECT id FROM documents WHERE thread_id = ? AND username = ?'
+        rows = self.db_client.fetch_all(query, (thread_id, username))
+        return rows

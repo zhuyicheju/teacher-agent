@@ -2,11 +2,13 @@ import traceback
 
 from flask import session, jsonify, request
 from cola.domain.factory.Repositoryfactory import documents_repository, document_segments_repository
-
+from cola.domain.business.documentService import document_service as document_domain_service
+from cola.infrastructure.vectordb.vectorDButils import delete_vectors
 class DocumentService:
     def __init__(self):
         pass
 
+    #done
     def knowledge_titles(self):
         """
         API: /knowledge_titles?thread_id=<id>
@@ -23,7 +25,8 @@ class DocumentService:
         except Exception:
             thread_id = None
 
-        items = list_user_document_titles(user, thread_id=thread_id)
+        ##透传入infra层
+        items = document_domain_service.list_user_document_titles(user, thread_id=thread_id)
         return jsonify({'items': items})
 
     def delete_document(self, doc_id):
@@ -31,27 +34,19 @@ class DocumentService:
             return jsonify({'error': '未登录'}), 401
         username = session.get('user')
         # 验证文档归属并取得文件名与 thread_id（若有）
-        res = document_belongs_to_user(doc_id, username)
+        res = document_domain_service.document_belongs_to_user(doc_id, username)
         if res is None:
             return jsonify({'error': '未找到该文档或无权限'}), 404
         filename, doc_thread = res
 
         ##这些数据库操作都得组成一个事务
-
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
         try:
             # 获取该文档的所有 vector_id
             rows = document_segments_repository.get_vector_ids_by_docs(doc_id)
             vector_ids = [r[0] for r in rows if r and r[0]]
 
-            # 删除向量：选择对应命名空间（thread 独立命名）
-            try:
-                db = VectorDB(username=username, thread_id=doc_thread)
-                if vector_ids:
-                    db.delete_documents(vector_ids)
-            except Exception as e:
-                print("删除向量失败：", e, traceback.format_exc())
+
+            delete_vectors(username, vector_ids)
 
             # 删除 DB 记录（先分段再文档）
             try:
@@ -96,13 +91,13 @@ class DocumentService:
             thread_id = int(thread_id) if thread_id not in (None, '', 'null') else None
         except Exception:
             thread_id = None
-        items = list_user_documents(session.get('user'), thread_id=thread_id)
+        items = document_domain_service.list_user_documents(session.get('user'), thread_id=thread_id)
         return jsonify({'items': items})
 
     def my_document_segments(self, doc_id):
         if not session.get('user'):
             return jsonify({'error': '未登录'}), 401
-        segs = get_document_segments(session.get('user'), doc_id)
+        segs = document_domain_service.get_document_segments(session.get('user'), doc_id)
         if segs is None:
             return jsonify({'error': '未找到该文档或无权限'}), 404
         return jsonify({'segments': segs})
@@ -138,9 +133,7 @@ class DocumentService:
 
         # 删除向量：选择对应命名空间（thread 独立命名）
         try:
-            db = VectorDB(username=username, thread_id=doc_thread)
-            if vector_ids:
-                db.delete_documents(vector_ids)
+            delete_vectors(vector_ids)
         except Exception as e:
             # 若删除向量失败，记录但继续删除 DB 记录
             print("删除向量失败：", e)
@@ -154,7 +147,21 @@ class DocumentService:
 
         return jsonify({'success': True})
 
-    def upload_file(self, user, file, thread_id):
+    def upload_file(self):
+        # 必须登录
+        user = session.get('user')
+        if not user:
+            return jsonify({"error": "未登录"}), 401
+
+        if 'file' not in request.files:
+            return jsonify({"error": "未发现上传文件"}), 400
+
+        file = request.files['file']
+        if not file or file.filename == '':
+            return jsonify({"error": "文件名为空"}), 400
+
+        thread_id = request.form.get('thread_id') or request.args.get('thread_id')
+
         # 保存原始文件名（未经 secure_filename 改写）
         original_filename = file.filename
 
@@ -187,7 +194,7 @@ class DocumentService:
             return jsonify({"error": "保存上传文件失败", "detail": str(e)}), 500
 
         try:
-            processed_segments = process_uploaded_document(file_path)
+            processed_segments = document_segments_repository.process_uploaded_document(file_path)
         except Exception as e:
             tb = traceback.format_exc()
             print("读取或分割文档失败: %s\n%s", str(e), tb)

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from cola.domain.utils.singleton import singleton
 
 @singleton
@@ -32,8 +34,17 @@ class ThreadRepository:
         row = self.db_client.execute_query(query, (thread_id, username), fetch_one=True)
         return row
 
-    def get_documents(self, thread_id, username):
-        """获取该线程下所有文档ID"""
-        query = 'SELECT id FROM documents WHERE thread_id = ? AND username = ?'
-        rows = self.db_client.fetch_all(query, (thread_id, username))
-        return rows
+    def create_thread(self, username, title):
+        query = 'INSERT INTO threads (username, title, created_at) VALUES (?, ?, ?)'
+        thread_id = self.db_client.execute_update(query, (username,  (username, title or '', datetime.utcnow().isoformat())))
+        return thread_id
+
+    def thread_belongs_to_user(self, thread_id: int, username: str) -> bool:
+        query = 'SELECT 1 FROM threads WHERE id = ? AND username = ?'
+        rows = self.db_client.execute_query(query, (thread_id, username))
+        ok = rows is not None
+        return ok
+
+    def update_thread_title(self, thread_id: int, title: str):
+        query = 'UPDATE threads SET title = ? WHERE id = ?'
+        self.db_client.execute_update(query, (title, thread_id))

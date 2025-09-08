@@ -3,6 +3,8 @@ import traceback
 from flask import session, jsonify, request
 from cola.domain.business.authService import auth_service
 from cola.domain.factory.Repositoryfactory import thread_repository, documents_repository, document_segments_repository, message_repository
+from cola.infrastructure.vectordb.vectorDButils import delete_vectors, delete_vector_dir
+from cola.infrastructure.os.os import delete_directory, get_raw_dir, get_raw_files, delete_files
 
 class AdminService:
     def __init__(self):
@@ -48,30 +50,14 @@ class AdminService:
             row = document_segments_repository.get_vector_ids_by_docs(docs)
             vector_ids = [r[0] for r in row if r and r[0]]
 
-            # 删除向量
-            try:
-                vdb = VectorDB(username=username, thread_id=thread_id)
-                if vector_ids:
-                    vdb.delete_documents(vector_ids)
-            except Exception as e:
-                print("管理员删除向量失败：", e, traceback.format_exc())
+            delete_vectors(username, thread_id, vector_ids)
 
-            # 删除 persist 目录
-            try:
-                vdb = VectorDB(username=username, thread_id=thread_id)
-                persist_dir = getattr(vdb, 'persist_directory', None)
-                if persist_dir and os.path.isdir(persist_dir):
-                    shutil.rmtree(persist_dir, ignore_errors=True)
-            except Exception as e:
-                print("管理员移除 persist_directory 失败：", e)
+            delete_vector_dir(username, thread_id)
 
             # 删除 raw_documents
             try:
-                raw_dir = os.path.abspath(
-                    os.path.join(os.path.dirname(__file__), '..', 'data', 'raw_documents', username,
-                                 f"thread_{thread_id}"))
-                if os.path.isdir(raw_dir):
-                    shutil.rmtree(raw_dir, ignore_errors=True)
+                raw_dir = get_raw_dir(username, thread_id)
+                delete_directory(raw_dir)
             except Exception as e:
                 print("管理员移除 raw_documents 失败：", e)
 
@@ -107,33 +93,16 @@ class AdminService:
             rows = document_segments_repository.get_vector_ids_by_docs(doc_thread)
             vector_ids = [r[0] for r in rows if r and r[0]]
 
-            try:
-                db = VectorDB(username=owner, thread_id=doc_thread)
-                if vector_ids:
-                    db.delete_documents(vector_ids)
-            except Exception as e:
-                print("管理员删除文档向量失败：", e, traceback.format_exc())
+            delete_vectors(owner, doc_thread, vector_ids)
 
-            try:
-                document_segments_repository.delete_segments_by_doc(doc_id)
-                documents_repository.delete_documents(doc_id)
-                ##事务
-            except Exception as e:
-                ##回滚
-                return jsonify({'error': str(e)}), 500
+            document_segments_repository.delete_segments_by_doc(doc_id)
+            documents_repository.delete_documents(doc_id)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
 
-        # 尝试删除源文件（raw_documents）
-        try:
-            raw_path = os.path.abspath(
-                os.path.join(os.path.dirname(__file__), '..', 'data', 'raw_documents', owner, f"thread_{doc_thread}",
-                             row[2]))
-            if os.path.isfile(raw_path):
-                try:
-                    os.remove(raw_path)
-                except Exception:
-                    pass
-        except Exception:
-            pass
+
+        raw_file = get_raw_files(owner, doc_thread, row[2])
+        delete_files(raw_file)
 
         return jsonify({'success': True})
 
