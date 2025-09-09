@@ -34,10 +34,11 @@ class DocumentService:
             return jsonify({'error': '未登录'}), 401
         username = session.get('user')
         # 验证文档归属并取得文件名与 thread_id（若有）
-        res = document_domain_service.document_belongs_to_user(doc_id, username)
-        if res is None:
+        row = documents_repository.document_belongs_to_user(doc_id, username)
+
+        if row is None:
             return jsonify({'error': '未找到该文档或无权限'}), 404
-        filename, doc_thread = res
+        filename, doc_thread = (row[0], row[1])
 
         ##这些数据库操作都得组成一个事务
         try:

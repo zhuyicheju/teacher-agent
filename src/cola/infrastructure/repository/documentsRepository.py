@@ -48,3 +48,29 @@ class DocumentsRepository():
         query = 'SELECT id FROM documents WHERE thread_id = ? AND username = ?'
         rows = self.db_client.fetch_all(query, (thread_id, username))
         return rows
+
+    def document_belongs_to_user(self, doc_id: int, username: str):
+        query = 'SELECT filename, thread_id FROM documents WHERE id = ? AND username = ?'
+        row = self.db_client.execute_query(query, (doc_id, username))
+        return row
+
+    def list_titles_without_thread_id(self, username, limit):
+        query = 'SELECT id, COALESCE(original_filename, filename), thread_id FROM documents WHERE username = ? ORDER BY id DESC LIMIT ?'
+        rows = self.db_client.execute_query(query, (username, limit))
+        return rows
+
+    def list_titles_with_thread_id(self, username, thread_id,  limit):
+        query = 'SELECT id, COALESCE(original_filename, filename), thread_id FROM documents WHERE username = ? AND thread_id = ? ORDER BY id DESC LIMIT ?'
+        rows = self.db_client.execute_query(query, (username, thread_id, limit))
+        return rows
+
+    def list_documents_with_thread_id(self, username, thread_id, limit):
+        query = 'SELECT id, COALESCE(original_filename, filename) as filename, stored_at, segment_count, thread_id FROM documents WHERE username = ? AND thread_id = ? ORDER BY id DESC LIMIT ?'
+        rows = self.db_client.execute_query(query, (username, thread_id, limit))
+        return rows
+
+    def list_documents_without_thread_id(self, username, limit):
+        query = 'SELECT id, COALESCE(original_filename, filename) as filename, stored_at, segment_count, thread_id FROM documents WHERE username = ? ORDER BY id DESC LIMIT ?'
+        rows = self.db_client.execute_query(query, (username, limit))
+        return rows
+
