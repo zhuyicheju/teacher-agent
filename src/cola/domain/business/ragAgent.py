@@ -3,13 +3,13 @@ from zhipuai import ZhipuAI
 from cola.infrastructure.externalServer.zhipuServer import zhipu_server
 from typing import Optional
 
+
 def rag_answer_stream(question: str, username: str = None, top_k: int = 5, thread_id: Optional[int] = None):
     """
     检索相关知识并结合LLM流式生成答案。
     username 用于在该用户的知识库中检索知识（若 None 则在全局库检索）。
     thread_id 可选；若提供，则会使用线程隔离的知识库标识（例如 username + thread_id 路径）。
     """
-    client = ZhipuAI(api_key="98ed0ed5a81f4a958432644de29cb547.LLhUp4oWijSoizYc")
     print(f"[原始问题] {question}")
     level = zhipu_server.classify_question_level(question)
     print(f"[问题分级] 等级 {level}")
