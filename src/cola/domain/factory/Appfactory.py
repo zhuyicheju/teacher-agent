@@ -2,6 +2,9 @@ import os
 
 from flask import Flask
 
+from cola.infrastructure import config
+
+
 class AppFactory:
     "负责创建flask示例"
 
@@ -11,26 +14,22 @@ class AppFactory:
     def create_app(cls):
         """创建并配置Flask应用实例"""
         if cls._app is None:
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            template_path = os.path.join(base_dir, 'templates')
-            static_path = os.path.join(base_dir, 'static')
 
             cls._app = Flask(__name__,
-                template_folder=template_path,
-                static_folder=static_path)
+                template_folder=config.TEMPLATE_DIR,
+                static_folder=config.STATIC_DIR)
 
-            # 注册蓝图
-            from..adapter.controller.admin.admin import bp_admin
-            from..adapter.controller.admin.admin_login import bp_admin_login
-            from..adapter.controller.auth.login import bp_login
-            from..adapter.controller.auth.logout import bp_logout
-            from..adapter.controller.chat.ask import bp_ask
-            from..adapter.controller.chat.generate_title import bp_generate_title
-            from..adapter.controller.document.knowledge_titles import bp_knowledge_titles
-            from..adapter.controller.document.my_documents import bp_my_documents
-            from..adapter.controller.document.upload import bp_upload
-            from..adapter.controller.thread.threads import bp_threads
-            from..adapter.controller.index import bp_index
+            from cola.adapter.controller.admin.admin_login import bp_admin_login
+            from cola.adapter.controller.admin.admin import bp_admin
+            from cola.adapter.controller.auth.login import bp_login
+            from cola.adapter.controller.auth.logout import bp_logout
+            from cola.adapter.controller.chat.ask import bp_ask
+            from cola.adapter.controller.chat.generate_title import bp_generate_title
+            from cola.adapter.controller.document.my_documents import bp_my_documents
+            from cola.adapter.controller.document.upload import bp_upload
+            from cola.adapter.controller.document.knowledge_titles import bp_knowledge_titles
+            from cola.adapter.controller.thread.threads import bp_threads
+            from cola.adapter.controller.index import bp_index
 
             cls._app.register_blueprint(bp_admin)
             cls._app.register_blueprint(bp_admin_login)

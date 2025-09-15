@@ -27,7 +27,7 @@ class ChatService:
 
         try:
 
-            thread_id, generated_title = domain_chat_service.handle_thread_and_message(
+            generated_title = domain_chat_service.handle_thread_and_message(
                 username, question, thread_id
             )
 

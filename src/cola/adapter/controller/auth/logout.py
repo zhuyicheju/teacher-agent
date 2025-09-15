@@ -6,4 +6,4 @@ bp_logout = Blueprint("logout", __name__)
 @bp_logout.route('/logout', methods=['GET'])
 def logout():
     session.pop('user', None)
-    return redirect(url_for('login_page'))
+    return redirect(url_for('login.loginpage'))

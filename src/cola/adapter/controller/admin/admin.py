@@ -29,7 +29,7 @@ def admin_delete_document(doc_id):
 def admin_page():
     # 仅 admin 用户可访问该页面
     if session.get('user') != 'admin':
-        return redirect(url_for('index'))
+        return redirect(url_for('index.index'))
     # 返回简单 HTML（依赖 static/js/app.js 中的 openAdminPanel 实现）
     return """
     <!doctype html>

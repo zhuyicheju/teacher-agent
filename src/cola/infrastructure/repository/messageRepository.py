@@ -15,3 +15,8 @@ class MessageRepository:
     def add_message(self, thread_id: int, username: str, role: str, content: str):
         query = 'INSERT INTO messages (thread_id, username, role, content, created_at) VALUES (?, ?, ?, ?, ?)'
         self.db_client.execute_update(query,thread_id, (username, role, content, datetime.utcnow().isoformat()))
+
+    def get_thread_messages(self, thread_id, username):
+        query = 'SELECT id, role, content, created_at FROM messages WHERE thread_id = ? AND username = ? ORDER BY id ASC'
+        rows = self.db_client.execute_query(query, (thread_id, username))
+        return rows

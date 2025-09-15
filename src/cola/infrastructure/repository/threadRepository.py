@@ -7,14 +7,17 @@ class ThreadRepository:
     def __init__(self, db_client):
         self.db_client = db_client
 
-    def list_threads(self):
+    def list_threads(self, username=None, limit = 100):
         """查询所有线程并按ID倒序排列"""
-        query = """
-            SELECT id, username, title, created_at 
+        query = '''
+            SELECT id, title, created_at 
             FROM threads 
-            ORDER BY id DESC
-        """
-        rows = self.db_client.execute_query(query)
+            WHERE (? IS NULL OR username = ?)
+            ORDER BY id DESC 
+            LIMIT ?
+        '''
+
+        rows = self.db_client.execute_query(query, (username, limit))
         return rows
 
     def get_thread_username(self, thread_id: int):

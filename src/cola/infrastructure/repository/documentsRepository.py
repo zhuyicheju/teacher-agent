@@ -30,7 +30,7 @@ class DocumentsRepository():
         query = f"DELETE FROM documents WHERE id IN ({placeholders})"
         self.db_client.execute_update(query, doc_ids)
 
-    def get_document_info(self, doc_id: int) -> Optional[Tuple]:
+    def get_document_info(self, doc_id: int):
         """根据文档ID查询文档信息（id, username, filename, thread_id）"""
         query = "SELECT id, username, filename, thread_id FROM documents WHERE id = ?"
         row = self.db_client.execute_query(query, (doc_id,), fetch_one=True)
@@ -74,3 +74,13 @@ class DocumentsRepository():
         rows = self.db_client.execute_query(query, (username, limit))
         return rows
 
+    def find_thread_id_with_doc_id(self, doc_id):
+        query = 'SELECT thread_id FROM documents WHERE id = ?'
+        row = self.db_client.execute_query(query, (doc_id,), fetchone=True)
+        return row
+
+    def document_belong_to_user(self, doc_id, username):
+        query = 'SELECT id FROM documents WHERE id = ? AND username = ?'
+        row = self.db_client.execute_query(query, (doc_id, username), fetchone=True)
+        ok = row is not None
+        return ok

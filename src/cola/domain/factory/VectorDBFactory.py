@@ -30,7 +30,7 @@ class VectorDBFactory:
         return instance
 
     @classmethod
-    def get_instance(cls, username: str, thread_id: int, persist_directory, collection_name) -> VectorDB:
+    def get_instance(cls, username: str, thread_id: int, persist_directory=None, collection_name=None) -> VectorDB:
         """
         获取缓存的实例（不存在则返回 None）
         :param username: 用户标识（需与创建时一致）

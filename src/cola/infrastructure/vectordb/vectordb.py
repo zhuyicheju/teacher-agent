@@ -3,9 +3,8 @@ import uuid
 from typing import List, Optional, Dict, Any
 import chromadb
 
-# 必要模块位置
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-DEFAULT_PERSIST_DIR = os.path.join(PROJECT_ROOT, 'knowledge_base')
+from cola.infrastructure import config
+from zhipuai import ZhipuAI
 
 class VectorDB:
     """
@@ -37,7 +36,7 @@ class VectorDB:
         if thread_id is not None:
             safe_thread = str(thread_id)
 
-        base = persist_directory or DEFAULT_PERSIST_DIR
+        base = persist_directory or config.VECTOR_DIR
         if safe_username:
             # 在 per-user 目录下再创建 per-thread 子目录（若提供 thread_id）
             user_dir = os.path.join(base, safe_username)
@@ -48,7 +47,7 @@ class VectorDB:
                 self.persist_directory = os.path.join(user_dir, "chroma_user")
                 self.collection_name = collection_name or f"teacher_agent_{safe_username}"
         else:
-            self.persist_directory = persist_directory or os.path.join(DEFAULT_PERSIST_DIR, 'chroma_db')
+            self.persist_directory = persist_directory or os.path.join(config.VECTOR_DIR, 'chroma_db')
             self.collection_name = collection_name or "teacher_agent"
 
         self._client = None
@@ -73,12 +72,7 @@ class VectorDB:
         if self._embedder is not None:
             return
 
-        try:
-            from zhipuai import ZhipuAI
-        except ImportError:
-            raise ImportError("缺少 zhipuai SDK。请运行: python -m pip install zhipuai")
-
-        api_key = "98ed0ed5a81f4a958432644de29cb547.LLhUp4oWijSoizYc"
+        api_key = config.API_KEY
         client = ZhipuAI(api_key=api_key)
         self._embedder = ("zhipuai", client)
 

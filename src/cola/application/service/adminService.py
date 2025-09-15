@@ -1,8 +1,8 @@
 from flask import session, jsonify, request
 from cola.domain.business.authService import auth_service
 from cola.domain.factory.Repositoryfactory import thread_repository, documents_repository, document_segments_repository, message_repository
-from cola.infrastructure.vectordb.vectorDButils import delete_vectors, delete_vector_dir
-from cola.infrastructure.os.os import delete_directory, get_raw_dir, get_raw_files, delete_files
+from cola.infrastructure.vectordb.vectorDButils import vectordb_utils
+from cola.infrastructure.os.os import os_utils
 from cola.domain.business.adminService import admin_service as domain_admin_service
 
 class AdminService:

@@ -5,7 +5,7 @@ from pdfminer.high_level import extract_text
 
 ALLOWED_EXTENSIONS = {'pdf', 'docx'}
 
-def read_document(file_path: str) -> str:
+def read_document(file_path: str):
     if file_path.endswith('.pdf'):
          return extract_text(file_path)
     elif file_path.endswith('.docx'):
@@ -14,7 +14,7 @@ def read_document(file_path: str) -> str:
     else:
         raise ValueError("Unsupported file format. Only PDF and Word files are supported.")
 
-def split_document(content: str) -> List[str]:
+def split_document(content: str):
     separators = ["\n\n", "\n", "。", "！", "？", "；", "，", ",", " "]
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,

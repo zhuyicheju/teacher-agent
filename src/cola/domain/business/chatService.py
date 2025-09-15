@@ -54,6 +54,8 @@ class ChatService:
                 return jsonify({'error': '未找到线程或无权限'}), 404
             message_repository.add_message(thread_id, username, 'user', question)
 
+        return generate_title
+
     def _save_user_message(self, thread_id, username, question):
         """保存用户消息到数据库"""
         try:

@@ -2,8 +2,8 @@ from flask import jsonify
 
 from cola.domain.factory.Repositoryfactory import documents_repository, document_segments_repository, \
     message_repository, thread_repository
-from cola.infrastructure.os.os import get_raw_dir, delete_directory
-from cola.infrastructure.vectordb.vectorDButils import delete_vectors, delete_vector_dir
+from cola.infrastructure.os.os import os_utils
+from cola.infrastructure.vectordb.vectorDButils import vectordb_utils
 
 
 class AdminService:
@@ -16,14 +16,14 @@ class AdminService:
             row = document_segments_repository.get_vector_ids_by_docs(docs)
             vector_ids = [r[0] for r in row if r and r[0]]
 
-            delete_vectors(username, thread_id, vector_ids)
+            vectordb_utils.delete_vectors(username, thread_id, vector_ids)
 
-            delete_vector_dir(username, thread_id)
+            vectordb_utils.delete_vector_dir(username, thread_id)
 
             # 删除 raw_documents
             try:
-                raw_dir = get_raw_dir(username, thread_id)
-                delete_directory(raw_dir)
+                raw_dir = os_utils.get_raw_dir(username, thread_id)
+                os_utils.delete_directory(raw_dir)
             except Exception as e:
                 print("管理员移除 raw_documents 失败：", e)
 
@@ -54,7 +54,7 @@ class AdminService:
             rows = document_segments_repository.get_vector_ids_by_docs(doc_thread)
             vector_ids = [r[0] for r in rows if r and r[0]]
 
-            delete_vectors(owner, doc_thread, vector_ids)
+            vectordb_utils.delete_vectors(owner, doc_thread, vector_ids)
 
             document_segments_repository.delete_segments_by_doc(doc_id)
             documents_repository.delete_documents(doc_id)
@@ -62,7 +62,7 @@ class AdminService:
             return jsonify({'error': str(e)}), 500
 
 
-        raw_file = get_raw_files(owner, doc_thread, row[2])
-        delete_files(raw_file)
+        raw_file = os_utils.get_raw_files(owner, doc_thread, row[2])
+        os_utils.delete_files(raw_file)
 
 admin_service = AdminService()

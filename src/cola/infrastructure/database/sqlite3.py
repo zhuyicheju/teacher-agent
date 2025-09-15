@@ -4,7 +4,7 @@ from typing import List, Tuple, Any
 from cola.infrastructure.database.dbInterface import DatabaseInterface
 
 
-class SQLiteClient(DatabaseInterface):
+class SQLiteClient:
     def __init__(self, db_path: str):
         self.db_path = db_path
         self.connection: sqlite3.Connection | None = None

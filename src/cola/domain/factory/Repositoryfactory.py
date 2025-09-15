@@ -1,3 +1,4 @@
+from cola.infrastructure import config
 from cola.infrastructure.database.dbInterface import DatabaseInterface
 from cola.infrastructure.database.sqlite3 import SQLiteClient
 from cola.infrastructure.repository.threadRepository import ThreadRepository
@@ -9,10 +10,8 @@ class RepositoryFactory:
     """仓储工厂，负责创建和管理所有Repository的单例实例"""
 
     def __init__(self):
-        # 初始化数据库客户端（也可设为单例）
-        self.db_client: DatabaseInterface = SQLiteClient(DB_PATH)
+        self.db_client = SQLiteClient(config.DB_DIR)
 
-        # 初始化所有仓储（通过单例装饰器保证唯一实例）
         self._init_repositories()
 
     def _init_repositories(self):

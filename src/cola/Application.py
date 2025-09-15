@@ -1,12 +1,13 @@
 import os
 
 from cola.domain.factory.Appfactory import AppFactory
+from cola.infrastructure import config
+from cola.infrastructure.externalServer.zhipuClient import ZhipuClient
 
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-template_path = os.path.join(base_dir, 'templates')
-static_path = os.path.join(base_dir, 'static')
 
 def main():
+    ZhipuClient(config.API_KEY)
+
     # 创建应用实例
     app = AppFactory.create_app()
 
