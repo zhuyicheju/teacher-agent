@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "teacher-agent"
+version = "0.1.0"
+description = "teacher-agent"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+  { name = "Liutianche" }
+]
+
+requires-python = ">=3.12"
+
+dependencies = [
+  "flask",
+  "zhipuai",
+  "pdfminer.six",
+  "langchain",
+  "docx",
+  "python-docx",
+  "chromadb"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+application = "cola.Application:main"
