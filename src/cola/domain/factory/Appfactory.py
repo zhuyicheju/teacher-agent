@@ -23,6 +23,7 @@ class AppFactory:
             from cola.adapter.controller.admin.admin import bp_admin
             from cola.adapter.controller.auth.login import bp_login
             from cola.adapter.controller.auth.logout import bp_logout
+            from cola.adapter.controller.auth.register import bp_register
             from cola.adapter.controller.chat.ask import bp_ask
             from cola.adapter.controller.chat.generate_title import bp_generate_title
             from cola.adapter.controller.document.my_documents import bp_my_documents
@@ -35,6 +36,7 @@ class AppFactory:
             cls._app.register_blueprint(bp_admin_login)
             cls._app.register_blueprint(bp_login)
             cls._app.register_blueprint(bp_logout)
+            cls._app.register_blueprint(bp_register)
             cls._app.register_blueprint(bp_ask)
             cls._app.register_blueprint(bp_generate_title)
             cls._app.register_blueprint(bp_knowledge_titles)
