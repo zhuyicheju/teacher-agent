@@ -121,7 +121,7 @@ teacher-agent/                # 项目根目录
 ├── static/                   # 静态资源
 ├── templates/                # 网页模板
 ├── tests/                    # 测试代码
-├── .env                      # 环境变量（不提交）
+├── .env                      # 环境变量
 ├── .gitignore                # Git忽略规则
 ├── pyproject.toml            # 项目配置
 ├── requirements.txt          # 依赖列表
