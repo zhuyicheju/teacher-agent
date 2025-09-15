@@ -12,7 +12,7 @@ authors = [
   { name = "Liutianche" }
 ]
 
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 
 dependencies = [
   "flask",
@@ -21,7 +21,8 @@ dependencies = [
   "langchain",
   "docx",
   "python-docx",
-  "chromadb"
+  "chromadb",
+  "python-dotenv"
 ]
 
 [tool.setuptools.packages.find]

@@ -2,3 +2,8 @@ venv/
 .idea/
 data/logs/*
 src/__pycache__/
+.env
+knowledge_base/*
+data/users.db
+data/raw_documents*
+src/teacher_agent.egg-info
